@@ -80,6 +80,7 @@ def test_commands_end_to_end(tmp_path, monkeypatch):
 def test_bare_link_shows_market(tmp_path, monkeypatch):
     st = Store(tmp_path / "b2.db")
     monkeypatch.setattr(app, "store", st)
+    monkeypatch.setattr(app.trading.ctx, "store", st)
 
     class FakeClient:
         async def event(self, slug):
@@ -98,3 +99,5 @@ def test_bare_link_shows_market(tmp_path, monkeypatch):
                                               text="https://polymarket.com/event/unl-ger-grc-2026-09-27-more-markets"))
     asyncio.run(app.dp.feed_update(bot, upd))
     assert session.sent and "Germany vs. Greece" in session.sent[-1].text and "0.80" in session.sent[-1].text
+    kb = session.sent[-1].reply_markup.inline_keyboard
+    assert any("Germany" in b.text and "$10" in b.text for row in kb for b in row)   # кнопки покупки

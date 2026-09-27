@@ -37,3 +37,19 @@ def test_smart_money_by_outcome():
     assert no["fade_usd"] == 600
     assert out["lean"] == "Yes"
     assert yes["top"][0]["wallet"] == "0xs"
+
+
+def test_parse_book_sorts_best_first():
+    raw = {"bids": [{"price": "0.001", "size": "65"}, {"price": "0.40", "size": "10"}, {"price": "0.45", "size": "5"}],
+           "asks": [{"price": "0.999", "size": "7"}, {"price": "0.55", "size": "3"}, {"price": "0.50", "size": "8"}]}
+    bids, asks = api.parse_book(raw)
+    assert bids[0] == (0.45, 5.0) and asks[0] == (0.50, 8.0) and asks[-1] == (0.999, 7.0)
+
+
+def test_winner_token_and_fee_rate():
+    m = {"closed": True, "outcomePrices": '["0", "1"]', "clobTokenIds": '["t1", "t2"]',
+         "feeSchedule": {"exponent": 1, "rate": 0.05, "takerOnly": True}}
+    assert api.winner_token(m) == "t2"
+    assert api.winner_token(dict(m, closed=False)) is None
+    assert api.winner_token(dict(m, outcomePrices='["0.5", "0.5"]')) is None
+    assert api.fee_rate(m) == 0.05 and api.fee_rate({}) == 0.0

@@ -58,3 +58,14 @@ def test_top_orders_by_tier_then_score(tmp_path):
     st.save_scores("news", [dict(base, wallet="0xb", tier="B", score=95), dict(base, wallet="0xs", tier="S", score=80),
                             dict(base, wallet="0xa", tier="A", score=90), dict(base, wallet="0xs2", tier="S", score=85)])
     assert [r["wallet"] for r in st.top("news", 10)] == ["0xs2", "0xs", "0xa", "0xb"]
+
+
+def test_quick_actions_and_ai_alert_type(tmp_path):
+    st = mk(tmp_path)
+    qid = st.put_quick({"a": "buy", "asset": "7" * 77, "usd": 50})
+    assert len(f"q:{qid}") < 64 and st.get_quick(qid)["asset"] == "7" * 77
+    assert st.get_quick(999999) is None
+    u = st.user(9, "ru")
+    assert u["alerts"]["ai"] is False
+    st.toggle_alert(9, "ai")
+    assert st.user(9)["alerts"]["ai"] is True

@@ -43,6 +43,10 @@ T = {
                   "⭐ /follow <code>адрес</code> — следить за кошельком\n"
                   "🚨 /radar — последние сигналы\n"
                   "⚙️ /alerts — какие сигналы присылать\n\n"
+                  "<b>Тестовая торговля</b> ($1 000 не настоящих денег, цены — живой стакан):\n"
+                  "💼 /paper — счёт · пришлите ссылку на рынок — кнопки покупки\n"
+                  "🤖 /ai — модель «против китов» · /copy ai 20 — копировать её\n"
+                  "📋 /copy <code>адрес</code> 25 — копировать кошелёк · 🏁 /leaders · ⚡ /desk\n\n"
                   "Это аналитика открытых данных, а не финансовый совет."),
         "help": ("<b>Команды</b>\n"
                  "/top [news|sports|crypto|all] — рейтинг\n"
@@ -52,6 +56,10 @@ T = {
                  "/radar — последние сигналы\n"
                  "/alerts — включить или выключить типы сигналов\n"
                  "/threshold &lt;сумма&gt; — минимальная ставка для сигнала\n"
+                 "/paper — тестовый счёт, /reset — сбросить\n"
+                 "/ai — модель, /copy ai 20 — копировать её\n"
+                 "/copy &lt;адрес&gt; 25, /copies, /uncopy &lt;адрес&gt; — копирование\n"
+                 "/leaders — лидеры, /desk — бот polydesk\n"
                  "/stats — что мы узнали о рынке\n"
                  "/about — как это считается"),
         "about": ("<b>Как считается рейтинг</b>\n\n"
@@ -75,7 +83,7 @@ T = {
         "radar.title": "🚨 <b>Последние сигналы</b>",
         "alerts.title": "⚙️ <b>Какие сигналы присылать</b>\nНажмите, чтобы включить или выключить.",
         "alerts.smart": "Умные деньги", "alerts.fresh": "Свежие киты", "alerts.cluster": "Потоки денег",
-        "alerts.fade": "Сигналы «против»", "alerts.follow": "Мой список",
+        "alerts.fade": "Сигналы «против»", "alerts.follow": "Мой список", "alerts.ai": "Сделки модели",
         "threshold.ok": "Минимальная ставка для сигнала: {usd}.",
         "threshold.bad": "Пример: /threshold 5000",
         "market.bad": "Пришлите ссылку на рынок Polymarket, например https://polymarket.com/event/…",
@@ -95,6 +103,53 @@ T = {
         "btn.top_news": "🗞 Новости", "btn.top_sports": "⚽ Спорт", "btn.top_crypto": "₿ Крипта",
         "btn.top_all": "🌐 Все", "btn.follow": "⭐ Следить", "btn.unfollow": "✖ Не следить",
         "btn.profile": "Профиль на Polymarket", "btn.market": "Открыть рынок",
+        "paper.title": "💼 <b>Счёт</b> · тестовые деньги",
+        "paper.equity": "Капитал <b>{eq}</b> · свободно {cash} · итог <b>{pnl}</b> ({pct})",
+        "paper.empty": "Позиций нет. Пришлите ссылку на рынок, чтобы купить, или /copy ai — копировать модель.",
+        "paper.pos": "{i}. <b>{outcome}</b> · {title}\n    {shares} акц. · вход {entry} → сейчас {mark} · <b>{pnl}</b>",
+        "paper.foot": "Цены — живой стакан Polymarket. Деньги тестовые.",
+        "ai.title": "🤖 <b>Модель «против китов»</b> · эксперимент",
+        "ai.what": ("Крупные игроки Polymarket в среднем переплачивают: их исходы выигрывают реже своей цены. "
+                    "Модель видит крупную покупку кошелька обычного тира и, если перевес ≥ 2 п.п., покупает "
+                    "противоположный исход. Против тиров 💎S и 🔥A не ставит. Размер — ¼ Келли, не больше 2% счёта."),
+        "ai.backtest": ("Проверка на будущем ({a} — {b}): {bets} ставок, ROI <b>{roi}</b> (95%: {lo} … {hi}), "
+                        "log-loss {ll} против {mll} у цен рынка."),
+        "ai.caveat": "Это верхняя оценка: проверка по средним ценам позиций. Настоящий результат — живой счёт ниже.",
+        "ai.off": "Модель сейчас не торгует: на проверке она не обыграла цены рынка.",
+        "ai.account": "Живой счёт модели: <b>{eq}</b> · итог <b>{pnl}</b> · позиций {n}",
+        "ai.last": "Последние сделки:",
+        "ev.ai_fade": "🤖 <b>Модель</b> ставит против кита: {tier} купил «{lo}» по {lp}\nКупила <b>{outcome}</b> по <b>{price}</b> на <b>{usd}</b> · оценка модели {pm}",
+        "ev.ai_follow": "🤖 <b>Модель</b> повторяет сильный кошелёк\nКупила <b>{outcome}</b> по <b>{price}</b> на <b>{usd}</b> · оценка модели {pm}",
+        "ev.copy_buy": "📋 <b>Скопировано</b> ({leader}): куплено <b>{outcome}</b> по {price} на {usd}",
+        "ev.copy_sell": "📋 <b>Скопировано</b> ({leader}): продано {frac} позиции «{outcome}» по {price} · {pnl}",
+        "ev.copy_fail": "📋 Не удалось скопировать ({leader}): {reason}",
+        "ev.settle_win": "✅ <b>Рынок разрешился</b>: «{outcome}» выиграл · {pnl}",
+        "ev.settle_loss": "❌ <b>Рынок разрешился</b>: «{outcome}» проиграл · {pnl}",
+        "desk.title": "⚡ <b>polydesk</b> · бот на 5-минутных рынках биткоина (бумага)",
+        "desk.body": "Капитал <b>{eq}</b> (старт {start}) · реализовано <b>{pnl}</b>\nРынков {m} · выиграно {winp} · сделок за сутки {f}",
+        "desk.last": "Последние рынки:",
+        "desk.none": "polydesk не запущен или ещё не торговал.",
+        "lead.title": "🏁 <b>Лидеры бумажной торговли</b>",
+        "lead.empty": "Пока никто не торговал.",
+        "buy.ok": "✅ Куплено <b>{outcome}</b> · {shares} акц. по {price} на {usd}",
+        "buy.partial": " (стакан тонкий — исполнено частично)",
+        "sell.ok": "✅ Продано {shares} акц. по {price} · {pnl}",
+        "err.cash": "Не хватает тестовых денег. /paper — посмотреть счёт, /reset — начать заново.",
+        "err.no_liquidity": "В стакане нет подходящих заявок.",
+        "err.no_position": "Этой позиции уже нет.",
+        "copy.ok": "📋 Копирую {who}: каждая его покупка — {usd} с вашего тестового счёта, продажи — той же долей.",
+        "copy.ai": "📋 Копирую модель: каждая её ставка — {usd} с вашего тестового счёта.",
+        "copy.bad": "Пример: /copy ai 20 или /copy &lt;адрес&gt; 25",
+        "copy.list": "📋 <b>Копирую</b>",
+        "copy.none": "Вы никого не копируете. /copy ai 20 — копировать модель.",
+        "copy.off": "Больше не копирую {who}.",
+        "reset.ask": "Сбросить счёт до $1,000? Позиции и история удалятся.",
+        "reset.ok": "Счёт сброшен: $1,000.",
+        "market.buy_hint": "Кнопки ниже — купить исход на тестовые деньги.",
+        "btn.buy": "🛒 {usd} · {outcome}",
+        "btn.sell_half": "Продать ½ #{i}", "btn.sell_all": "Продать всё #{i}",
+        "btn.copy_ai": "📋 Копировать модель $20", "btn.ai_alerts": "🔔 Сделки модели",
+        "btn.reset_yes": "Да, сбросить", "btn.cancel": "Отмена", "btn.uncopy": "✖ {who}",
         "btn.radar": "🚨 Радар", "btn.alerts": "⚙️ Сигналы",
     },
     "en": {
@@ -137,6 +192,10 @@ T = {
                   "⭐ /follow <code>address</code> — track a wallet\n"
                   "🚨 /radar — latest signals\n"
                   "⚙️ /alerts — choose your signals\n\n"
+                  "<b>Paper trading</b> ($1,000 of test money, live order-book prices):\n"
+                  "💼 /paper — account · send a market link to get buy buttons\n"
+                  "🤖 /ai — fade-the-whales model · /copy ai 20 — copy it\n"
+                  "📋 /copy <code>address</code> 25 — copy a wallet · 🏁 /leaders · ⚡ /desk\n\n"
                   "Open-data analytics, not financial advice."),
         "help": ("<b>Commands</b>\n"
                  "/top [news|sports|crypto|all] — leaderboard\n"
@@ -146,6 +205,10 @@ T = {
                  "/radar — latest signals\n"
                  "/alerts — toggle signal types\n"
                  "/threshold &lt;amount&gt; — minimum bet size for a signal\n"
+                 "/paper — test account, /reset — reset it\n"
+                 "/ai — the model, /copy ai 20 — copy it\n"
+                 "/copy &lt;address&gt; 25, /copies, /uncopy &lt;address&gt; — copy trading\n"
+                 "/leaders — leaders, /desk — polydesk bot\n"
                  "/stats — what we learned about the market\n"
                  "/about — how it works"),
         "about": ("<b>How the score works</b>\n\n"
@@ -169,7 +232,7 @@ T = {
         "radar.title": "🚨 <b>Latest signals</b>",
         "alerts.title": "⚙️ <b>Signals to send</b>\nTap to turn on or off.",
         "alerts.smart": "Smart money", "alerts.fresh": "Fresh whales", "alerts.cluster": "Money flows",
-        "alerts.fade": "Fade signals", "alerts.follow": "My list",
+        "alerts.fade": "Fade signals", "alerts.follow": "My list", "alerts.ai": "Model trades",
         "threshold.ok": "Minimum bet size for a signal: {usd}.",
         "threshold.bad": "Example: /threshold 5000",
         "market.bad": "Send a Polymarket market link, e.g. https://polymarket.com/event/…",
@@ -189,6 +252,53 @@ T = {
         "btn.top_news": "🗞 News", "btn.top_sports": "⚽ Sports", "btn.top_crypto": "₿ Crypto",
         "btn.top_all": "🌐 All", "btn.follow": "⭐ Follow", "btn.unfollow": "✖ Unfollow",
         "btn.profile": "Polymarket profile", "btn.market": "Open market",
+        "paper.title": "💼 <b>Account</b> · test money",
+        "paper.equity": "Equity <b>{eq}</b> · free {cash} · P&amp;L <b>{pnl}</b> ({pct})",
+        "paper.empty": "No positions. Send a market link to buy, or /copy ai to copy the model.",
+        "paper.pos": "{i}. <b>{outcome}</b> · {title}\n    {shares} sh · entry {entry} → now {mark} · <b>{pnl}</b>",
+        "paper.foot": "Prices come from the live Polymarket order book. Money is not real.",
+        "ai.title": "🤖 <b>Fade-the-whales model</b> · experiment",
+        "ai.what": ("Big Polymarket players overpay on average: their outcomes win less often than their price. "
+                    "When a regular-tier wallet buys big and the edge is ≥ 2 pp, the model buys the opposite "
+                    "outcome. It never fades 💎S and 🔥A wallets. Size: ¼ Kelly, at most 2% of the account."),
+        "ai.backtest": ("Out-of-sample test ({a} — {b}): {bets} bets, ROI <b>{roi}</b> (95%: {lo} … {hi}), "
+                        "log-loss {ll} vs {mll} for market prices."),
+        "ai.caveat": "This is an upper bound: the test uses average position prices. The live account below is the real result.",
+        "ai.off": "The model is not trading: it did not beat market prices out of sample.",
+        "ai.account": "Live model account: <b>{eq}</b> · P&amp;L <b>{pnl}</b> · positions {n}",
+        "ai.last": "Latest trades:",
+        "ev.ai_fade": "🤖 <b>Model</b> fades a whale: {tier} bought «{lo}» at {lp}\nBought <b>{outcome}</b> at <b>{price}</b> for <b>{usd}</b> · model estimate {pm}",
+        "ev.ai_follow": "🤖 <b>Model</b> follows a strong wallet\nBought <b>{outcome}</b> at <b>{price}</b> for <b>{usd}</b> · model estimate {pm}",
+        "ev.copy_buy": "📋 <b>Copied</b> ({leader}): bought <b>{outcome}</b> at {price} for {usd}",
+        "ev.copy_sell": "📋 <b>Copied</b> ({leader}): sold {frac} of «{outcome}» at {price} · {pnl}",
+        "ev.copy_fail": "📋 Could not copy ({leader}): {reason}",
+        "ev.settle_win": "✅ <b>Market resolved</b>: «{outcome}» won · {pnl}",
+        "ev.settle_loss": "❌ <b>Market resolved</b>: «{outcome}» lost · {pnl}",
+        "desk.title": "⚡ <b>polydesk</b> · bitcoin 5-minute markets bot (paper)",
+        "desk.body": "Equity <b>{eq}</b> (start {start}) · realized <b>{pnl}</b>\nMarkets {m} · won {winp} · fills in 24 h {f}",
+        "desk.last": "Latest markets:",
+        "desk.none": "polydesk is not running or has not traded yet.",
+        "lead.title": "🏁 <b>Paper trading leaders</b>",
+        "lead.empty": "Nobody has traded yet.",
+        "buy.ok": "✅ Bought <b>{outcome}</b> · {shares} sh at {price} for {usd}",
+        "buy.partial": " (thin book — partially filled)",
+        "sell.ok": "✅ Sold {shares} sh at {price} · {pnl}",
+        "err.cash": "Not enough test money. /paper to view the account, /reset to start over.",
+        "err.no_liquidity": "No suitable orders in the book.",
+        "err.no_position": "This position is already gone.",
+        "copy.ok": "📋 Copying {who}: each of their buys is {usd} from your test account, sells at the same fraction.",
+        "copy.ai": "📋 Copying the model: each of its bets is {usd} from your test account.",
+        "copy.bad": "Example: /copy ai 20 or /copy &lt;address&gt; 25",
+        "copy.list": "📋 <b>Copying</b>",
+        "copy.none": "You are not copying anyone. /copy ai 20 to copy the model.",
+        "copy.off": "No longer copying {who}.",
+        "reset.ask": "Reset the account to $1,000? Positions and history will be deleted.",
+        "reset.ok": "Account reset: $1,000.",
+        "market.buy_hint": "Use the buttons below to buy an outcome with test money.",
+        "btn.buy": "🛒 {usd} · {outcome}",
+        "btn.sell_half": "Sell ½ #{i}", "btn.sell_all": "Sell all #{i}",
+        "btn.copy_ai": "📋 Copy model $20", "btn.ai_alerts": "🔔 Model trades",
+        "btn.reset_yes": "Yes, reset", "btn.cancel": "Cancel", "btn.uncopy": "✖ {who}",
         "btn.radar": "🚨 Radar", "btn.alerts": "⚙️ Alerts",
     },
 }

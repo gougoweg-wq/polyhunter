@@ -144,3 +144,101 @@ def market_card(title, url, sm, lang):
     lines.append(tr(lang, "market.verdict_yes", outcome=esc(sm["lean"])) if sm["lean"]
                  else tr(lang, "market.verdict_none"))
     return "\n".join(lines)
+
+
+# ------------------------------------------------------------------ бумажная торговля
+def signed_money(x):
+    if abs(x) < 0.5:
+        return "$0"
+    return f"{'+' if x >= 0 else '−'}${abs(x):,.0f}"
+
+
+def _mark(pos, marks):
+    return marks.get(pos["asset"], pos["cost"] / pos["shares"] if pos["shares"] else 0.0)
+
+
+def paper_card(acc, positions, marks, lang):
+    eq = acc["cash"] + sum(p["shares"] * _mark(p, marks) for p in positions)
+    pnl = eq - acc["start"]
+    lines = [tr(lang, "paper.title"),
+             tr(lang, "paper.equity", eq=money(eq), cash=money(acc["cash"]), pnl=signed_money(pnl),
+                pct=pct(pnl / acc["start"] if acc["start"] else 0)), ""]
+    if not positions:
+        lines.append(tr(lang, "paper.empty"))
+    for i, p in enumerate(positions, 1):
+        m = _mark(p, marks)
+        entry = p["cost"] / p["shares"] if p["shares"] else 0
+        val = p["shares"] * m
+        lines.append(tr(lang, "paper.pos", i=i, outcome=esc(p["outcome"]), title=f"<a href=\"{market_url(p)}\">{esc(p['title'])}</a>",
+                        shares=f"{p['shares']:,.0f}", entry=price(entry), mark=price(m),
+                        pnl=f"{signed_money(val - p['cost'])} ({pct((val - p['cost']) / p['cost'] if p['cost'] else 0)})"))
+    lines += ["", f"<i>{tr(lang, 'paper.foot')}</i>"]
+    return "\n".join(lines)
+
+
+def ai_card(rep, acc, positions, marks, trades, lang):
+    lines = [tr(lang, "ai.title"), "", tr(lang, "ai.what"), ""]
+    if rep:
+        a, b = rep.get("periods", {}).get("test", ["?", "?"])
+        lines.append("📐 " + tr(lang, "ai.backtest", a=a, b=b, bets=f"{rep.get('bets', 0):,}", roi=pct(rep.get("roi", 0)),
+                                lo=pct(rep.get("roi_lo", 0)), hi=pct(rep.get("roi_hi", 0)),
+                                ll=f"{rep.get('log_loss', 0):.4f}", mll=f"{rep.get('market_log_loss', 0):.4f}"))
+        lines.append(f"<i>{tr(lang, 'ai.caveat')}</i>")
+        if not rep.get("tradable"):
+            lines.append("⛔ " + tr(lang, "ai.off"))
+    eq = acc["cash"] + sum(p["shares"] * _mark(p, marks) for p in positions)
+    lines += ["", "💼 " + tr(lang, "ai.account", eq=money(eq), pnl=signed_money(eq - acc["start"]), n=len(positions))]
+    if trades:
+        lines.append(tr(lang, "ai.last"))
+        for t in trades[:5]:
+            pl = f" · {signed_money(t['pnl'])}" if t.get("pnl") is not None else ""
+            lines.append(f"  {t['side']} <b>{esc(t['outcome'])}</b> {price(t['price'])} · {money(t['usd'])}{pl} · {esc(t['title'])[:50]}")
+    return "\n".join(lines)
+
+
+def desk_card(d, lang):
+    if not d:
+        return tr(lang, "desk.none")
+    lines = [tr(lang, "desk.title"), "",
+             tr(lang, "desk.body", eq=money(d["equity"]), start=money(d["start"]), pnl=signed_money(d["realized"]),
+                m=d["markets"], winp=f"{d['won'] / d['markets']:.0%}" if d["markets"] else "—", f=d["fills_24h"])]
+    if d.get("last"):
+        lines += ["", tr(lang, "desk.last")]
+        for r in d["last"][:5]:
+            ts = int(r["slug"].rsplit("-", 1)[-1]) if r["slug"].rsplit("-", 1)[-1].isdigit() else 0
+            lines.append(f"  {_ts(ts)} · {signed_money(r['pnl'] or 0)}")
+    return "\n".join(lines)
+
+
+def leaders(rows, names, lang):
+    if not rows:
+        return tr(lang, "lead.empty")
+    out = [tr(lang, "lead.title"), ""]
+    for i, (owner, eq, pnl) in enumerate(rows, 1):
+        who_ = "🤖 AI" if owner == "ai" else ("⚡ polydesk" if owner == "desk" else esc(names.get(owner) or owner))
+        out.append(f"{i}. {who_} · {money(eq)} · <b>{signed_money(pnl)}</b>")
+    return "\n".join(out)
+
+
+def paper_event(e, lang):
+    k = e["kind"]
+    mk = e.get("mk") or {}
+    if k == "ai_buy":
+        key = "ev.ai_fade" if e.get("side") == "fade" else "ev.ai_follow"
+        head = tr(lang, key, tier=e.get("leader_tier", "?"), lo=esc(e.get("leader_outcome", "")),
+                  lp=price(e.get("leader_price", 0)), outcome=esc(mk.get("outcome", "")), price=price(e["price"]),
+                  usd=money(e["usd"]), pm=price(1 - e["p_model"] if e.get("side") == "fade" else e["p_model"]))
+        return head + f"\n📍 <a href=\"{market_url(mk)}\">{esc(mk.get('title', ''))}</a>"
+    leader = "AI" if e.get("leader") == "ai" else short(e.get("leader", ""))
+    if k == "copy_buy":
+        return tr(lang, "ev.copy_buy", leader=leader, outcome=esc(mk.get("outcome", "")), price=price(e["price"]),
+                  usd=money(e["usd"])) + f"\n📍 <a href=\"{market_url(mk)}\">{esc(mk.get('title', ''))}</a>"
+    if k == "copy_sell":
+        return tr(lang, "ev.copy_sell", leader=leader, frac=f"{e['fraction']:.0%}", outcome=esc(mk.get("outcome", "")),
+                  price=price(e["price"]), pnl=signed_money(e["pnl"]))
+    if k == "copy_fail":
+        return tr(lang, "ev.copy_fail", leader=leader, reason=tr(lang, "err." + e.get("reason", "cash")))
+    if k == "settle":
+        key = "ev.settle_win" if e["won"] else "ev.settle_loss"
+        return tr(lang, key, outcome=esc(e.get("outcome", "")), pnl=signed_money(e["pnl"])) + f"\n{esc(e.get('title', ''))}"
+    return ""

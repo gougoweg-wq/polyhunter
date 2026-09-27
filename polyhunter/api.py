@@ -7,6 +7,7 @@ import httpx
 
 DATA = "https://data-api.polymarket.com"
 GAMMA = "https://gamma-api.polymarket.com"
+CLOB = "https://clob.polymarket.com"
 UA = {"User-Agent": "polyhunter-bot/2.0 (open-data research)"}
 
 LINK = re.compile(r"polymarket\.com/(event|market)/([\w-]+)(?:/([\w-]+))?", re.I)
@@ -73,6 +74,28 @@ def smart_money(market, holders, scores, min_lean=1000):
     return dict(outcomes=rows, lean=lean)
 
 
+def parse_book(raw):
+    """Стакан CLOB → (биды от лучшего, аски от лучшего) как [(цена, размер)]."""
+    bids = sorted(((float(x["price"]), float(x["size"])) for x in raw.get("bids") or []), reverse=True)
+    asks = sorted((float(x["price"]), float(x["size"])) for x in raw.get("asks") or [])
+    return bids, asks
+
+
+def winner_token(market):
+    """Токен выигравшего исхода закрытого рынка или None, пока исход не известен."""
+    if not market.get("closed"):
+        return None
+    prices = [float(x) for x in _jl(market.get("outcomePrices"))]
+    tokens = _jl(market.get("clobTokenIds"))
+    if not prices or max(prices) < 0.99:
+        return None
+    return tokens[prices.index(max(prices))] if len(tokens) == len(prices) else None
+
+
+def fee_rate(market):
+    return float((market.get("feeSchedule") or {}).get("rate") or 0.0)
+
+
 # ---------------------------------------------------------------- сеть
 class Client:
     def __init__(self):
@@ -110,6 +133,37 @@ class Client:
 
     async def holders(self, condition_id, limit=20):
         return await self.get(f"{DATA}/holders", market=condition_id, limit=limit)
+
+    async def book(self, token):
+        return parse_book(await self.get(f"{CLOB}/book", token_id=token))
+
+    async def midpoints(self, tokens):
+        out = {}
+        for t in tokens:
+            try:
+                out[t] = float((await self.get(f"{CLOB}/midpoint", token_id=t)).get("mid"))
+            except Exception:
+                continue
+        return out
+
+    async def market_by_token(self, token):
+        d = await self.get(f"{GAMMA}/markets", clob_token_ids=token)
+        if not d:
+            d = await self.get(f"{GAMMA}/markets", clob_token_ids=token, closed="true")
+        return d[0] if d else None
+
+    async def market_by_condition(self, condition_id):
+        d = await self.get(f"{GAMMA}/markets", condition_ids=condition_id, closed="true")
+        if not d:
+            d = await self.get(f"{GAMMA}/markets", condition_ids=condition_id)
+        return d[0] if d else None
+
+    async def leader_activity(self, wallet, limit=50):
+        return await self.get(f"{DATA}/activity", user=wallet, limit=limit, type="TRADE")
+
+    async def leader_position(self, wallet, condition_id, asset):
+        rows = await self.get(f"{DATA}/positions", user=wallet, market=condition_id, sizeThreshold=0)
+        return sum(float(r.get("size") or 0) for r in rows if r.get("asset") == asset)
 
     async def close(self):
         await self.h.aclose()

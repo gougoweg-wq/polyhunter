@@ -25,6 +25,10 @@ import hunter  # noqa: E402  сбор позиций кошелька (синх�
 from polyhunter import api, pipeline, render  # noqa: E402
 from polyhunter.engine import RadarEngine  # noqa: E402
 from polyhunter.radar import trade_key  # noqa: E402
+from polyhunter.model import FADE_FILE, Predictor  # noqa: E402
+from polyhunter.paper import Paper  # noqa: E402
+from polyhunter.trader import Trader  # noqa: E402
+from bot import trading  # noqa: E402
 from polyhunter.i18n import lang_of, tr  # noqa: E402
 from polyhunter.store import ALERT_TYPES, Store  # noqa: E402
 
@@ -47,6 +51,10 @@ def load_env():
 load_env()
 store = Store(DATA / "bot.db")
 client = api.Client()
+paper = Paper(store)
+predictor = Predictor(DATA / FADE_FILE) if (DATA / FADE_FILE).exists() else None
+trader = Trader(store, paper, client, predictor, min_signal_usd=2000)
+POLYDESK_DB = Path.home() / "polydesk" / "data" / "polydesk.db"
 dp = Dispatcher()
 NOPREVIEW = LinkPreviewOptions(is_disabled=True)
 _facts = {"at": 0, "v": None}
@@ -72,6 +80,8 @@ def top_kb(lang):
 
 def start_kb(lang):
     k = top_kb(lang)
+    k.inline_keyboard.append([InlineKeyboardButton(text="💼 " + ("Счёт" if lang == "ru" else "Account"), callback_data="paper"),
+                              InlineKeyboardButton(text="🤖 " + ("Модель" if lang == "ru" else "Model"), callback_data="ai")])
     k.inline_keyboard.append([InlineKeyboardButton(text=tr(lang, "btn.radar"), callback_data="radar"),
                               InlineKeyboardButton(text=tr(lang, "btn.alerts"), callback_data="alerts")])
     return k
@@ -338,9 +348,11 @@ async def cmd_market(m: Message, command: CommandObject):
             return
         holders = await client.holders(market["conditionId"])
         sm = api.smart_money(market, holders, store.scores_map("all"))
-        await m.answer(render.market_card(market.get("question") or "", url, sm, lang),
+        await m.answer(render.market_card(market.get("question") or "", url, sm, lang)
+                       + "\n\n<i>" + tr(lang, "market.buy_hint") + "</i>",
                        link_preview_options=NOPREVIEW,
-                       reply_markup=kb([[InlineKeyboardButton(text=tr(lang, "btn.market"), url=url)]]))
+                       reply_markup=kb([[InlineKeyboardButton(text=tr(lang, "btn.market"), url=url)]]
+                                       + trading.buy_rows(market, lang)))
     except Exception:
         log.exception("market")
         await m.answer(tr(lang, "err"))
@@ -390,10 +402,40 @@ async def radar_loop(bot: Bot):
                 eng.refresh()
                 for sig in await eng.step(trades):
                     await broadcast(bot, sig)
+                await notify_events(bot, await trader.on_trades(trades))
             store.prune_seen()
         except Exception:
             log.exception("radar")
         await asyncio.sleep(RADAR_EVERY)
+
+
+async def notify_events(bot, events):
+    """Сделки модели, копирования и расчёты — тем, кого они касаются."""
+    for e in events:
+        if e["kind"] == "ai_buy":
+            to = [u["chat_id"] for u in store.users() if u["alerts"].get("ai")]
+        elif e["kind"] in ("copy_buy", "copy_sell", "copy_fail"):
+            to = [e["chat"]]
+        elif e["kind"] == "settle" and str(e["owner"]).startswith("u:"):
+            to = [int(e["owner"][2:])]
+        else:
+            to = []
+        for chat_id in to:
+            lang = store.user(chat_id)["lang"]
+            try:
+                await bot.send_message(chat_id, render.paper_event(e, lang), link_preview_options=NOPREVIEW)
+            except TelegramAPIError as err:
+                log.warning("notify %s: %s", chat_id, err)
+            await asyncio.sleep(0.05)
+
+
+async def loop_every(seconds, fn, bot, name):
+    while True:
+        try:
+            await notify_events(bot, await fn())
+        except Exception:
+            log.exception(name)
+        await asyncio.sleep(seconds)
 
 
 async def broadcast(bot, sig):
@@ -432,10 +474,16 @@ async def setup_profile(bot: Bot):
         "ru": [("top", "Рейтинг умных денег"), ("wallet", "Разбор кошелька"), ("market", "Умные деньги в рынке"),
                ("radar", "Последние сигналы"), ("follow", "Следить за кошельком"), ("following", "Мой список"),
                ("alerts", "Какие сигналы присылать"), ("threshold", "Минимальная ставка для сигнала"),
+               ("paper", "Мой тестовый счёт"), ("ai", "Модель «против китов»"), ("copy", "Копировать модель или кошелёк"),
+               ("copies", "Кого я копирую"), ("leaders", "Лидеры бумажной торговли"), ("desk", "Бот polydesk"),
+               ("reset", "Сбросить тестовый счёт"),
                ("stats", "Что показывают данные"), ("about", "Как считается рейтинг"), ("help", "Все команды")],
         "en": [("top", "Smart money leaderboard"), ("wallet", "Wallet breakdown"), ("market", "Smart money in a market"),
                ("radar", "Latest signals"), ("follow", "Track a wallet"), ("following", "My list"),
                ("alerts", "Choose signals"), ("threshold", "Minimum bet size"),
+               ("paper", "My test account"), ("ai", "Fade-the-whales model"), ("copy", "Copy the model or a wallet"),
+               ("copies", "Who I copy"), ("leaders", "Paper trading leaders"), ("desk", "polydesk bot"),
+               ("reset", "Reset test account"),
                ("stats", "What the data shows"), ("about", "How the score works"), ("help", "All commands")],
     }
     desc = {
@@ -476,8 +524,15 @@ async def main():
     except TelegramAPIError as e:
         log.warning("profile: %s", e)
     asyncio.create_task(radar_loop(bot))
+    asyncio.create_task(loop_every(60, trader.copy_step, bot, "copy"))
+    asyncio.create_task(loop_every(300, trader.settle_step, bot, "settle"))
     asyncio.create_task(rescore_loop())
     await dp.start_polling(bot)
+
+
+trading.ctx.store, trading.ctx.paper, trading.ctx.trader, trading.ctx.client = store, paper, trader, client
+trading.ctx.ulang, trading.ctx.desk_db = ulang, POLYDESK_DB
+dp.include_router(trading.router)
 
 
 if __name__ == "__main__":

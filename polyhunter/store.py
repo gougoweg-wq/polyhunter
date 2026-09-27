@@ -4,8 +4,8 @@ import sqlite3
 import threading
 import time
 
-ALERT_TYPES = ("smart", "fresh", "cluster", "fade", "follow")
-DEFAULT_ALERTS = {"smart": True, "fresh": True, "cluster": True, "fade": False, "follow": True}
+ALERT_TYPES = ("smart", "fresh", "cluster", "fade", "follow", "ai")
+DEFAULT_ALERTS = {"smart": True, "fresh": True, "cluster": True, "fade": False, "follow": True, "ai": False}
 SCORE_COLS = ("wallet", "name", "tier", "score", "post_edge", "edge", "q", "n", "events", "wins", "exp",
               "roi", "pnl", "stake", "best_category", "timing6h")
 
@@ -29,6 +29,16 @@ class Store:
             create table if not exists signals(id integer primary key autoincrement, kind text, text text, ts integer);
             create table if not exists wallet_hist(wallet text primary key, n integer, at integer);
             create table if not exists meta(k text primary key, v text);
+            create table if not exists paper_accounts(owner text primary key, cash real, start real, created integer);
+            create table if not exists paper_positions(owner text, asset text, condition_id text, outcome text,
+              title text, slug text, event_slug text, shares real, cost real, opened integer, source text,
+              primary key(owner, asset));
+            create table if not exists paper_trades(id integer primary key autoincrement, owner text, ts integer,
+              asset text, side text, shares real, price real, usd real, pnl real, source text, title text, outcome text);
+            create index if not exists paper_trades_owner on paper_trades(owner, id desc);
+            create table if not exists copies(chat_id integer, leader text, usd real, since integer,
+              primary key(chat_id, leader));
+            create table if not exists quick(id integer primary key autoincrement, payload text, created integer);
             """)
 
     # ------------------------------------------------------------ users
@@ -166,3 +176,36 @@ class Store:
         with self.lock:
             r = self.c.execute("select v from meta where k=?", (k,)).fetchone()
         return json.loads(r[0]) if r else default
+
+    # ------------------------------------------------------------ копирование
+    def set_copy(self, chat_id, leader, usd):
+        with self.lock, self.c:
+            self.c.execute("insert or replace into copies values(?,?,?,?)",
+                           (chat_id, leader.lower(), float(usd), int(time.time())))
+
+    def remove_copy(self, chat_id, leader):
+        with self.lock, self.c:
+            self.c.execute("delete from copies where chat_id=? and leader=?", (chat_id, leader.lower()))
+
+    def copies_of(self, chat_id):
+        with self.lock:
+            return [(r[0], r[1]) for r in self.c.execute("select leader, usd from copies where chat_id=? order by leader", (chat_id,))]
+
+    def copiers(self, leader):
+        with self.lock:
+            return [(r[0], r[1]) for r in self.c.execute("select chat_id, usd from copies where leader=?", (leader.lower(),))]
+
+    def copy_leaders(self):
+        with self.lock:
+            return [r[0] for r in self.c.execute("select distinct leader from copies")]
+
+    # ------------------------------------------------------------ быстрые действия кнопок
+    def put_quick(self, payload):
+        with self.lock, self.c:
+            cur = self.c.execute("insert into quick(payload, created) values(?,?)", (json.dumps(payload), int(time.time())))
+            return cur.lastrowid
+
+    def get_quick(self, qid):
+        with self.lock:
+            r = self.c.execute("select payload from quick where id=?", (int(qid),)).fetchone()
+        return json.loads(r[0]) if r else None
