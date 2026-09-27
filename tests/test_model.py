@@ -54,3 +54,18 @@ def test_fade_return_with_taker_fee():
     # цена противоположного 0.21, комиссия 0.05×0.21×0.79 за акцию
     cost = 0.21 + 0.05 * 0.21 * 0.79
     assert M.fade_return(price=0.8, won=0, spread=0.01, fee=0.05) == pytest.approx(1 / cost - 1)
+
+
+def test_fade_model_json_matches_sklearn(tmp_path):
+    from sklearn.linear_model import LogisticRegression
+    import random
+    random.seed(1)
+    X = [M.fade_features(p, random.choice(["news", "sports", "crypto"])) for p in [random.uniform(.05, .95) for _ in range(400)]]
+    y = [1 if random.random() < 0.9 * x[0] / 10 + 0.45 else 0 for x in X]
+    lr = LogisticRegression(max_iter=500).fit(X, y)
+    path = tmp_path / "fade_model.json"
+    M.save_fade_json(lr, {"tradable": True}, path)
+    pr = M.Predictor(path)
+    for p, cat in [(0.2, "news"), (0.7, "sports"), (0.95, "crypto")]:
+        assert pr.prob(p, 1000, cat, None) == pytest.approx(lr.predict_proba([M.fade_features(p, cat)])[0, 1], abs=1e-9)
+    assert pr.report["tradable"] is True and pr.kind == "fade"

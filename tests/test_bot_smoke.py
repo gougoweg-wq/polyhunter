@@ -101,3 +101,17 @@ def test_bare_link_shows_market(tmp_path, monkeypatch):
     assert session.sent and "Germany vs. Greece" in session.sent[-1].text and "0.80" in session.sent[-1].text
     kb = session.sent[-1].reply_markup.inline_keyboard
     assert any("Germany" in b.text and "$10" in b.text for row in kb for b in row)   # кнопки покупки
+
+
+def test_stats_uses_saved_facts_in_cloud(tmp_path, monkeypatch):
+    st = Store(tmp_path / "c.db")
+    st.set_meta("facts", dict(wallets=647, bets=318467, wr=.485, er=.535, lw=.066, le=.114))
+    monkeypatch.setattr(app, "store", st)
+    monkeypatch.setattr(app, "HUNTER_DB", tmp_path / "missing.db")
+    monkeypatch.setattr(app, "_facts", {"at": 0, "v": None})
+    session = FakeSession()
+    bot = Bot("123456:TEST", session=session, default=DefaultBotProperties(parse_mode="HTML"))
+    user = User(id=79, is_bot=False, first_name="T", language_code="ru")
+    asyncio.run(app.dp.feed_update(bot, Update(update_id=1, message=Message(
+        message_id=1, date=datetime.now(), from_user=user, chat=Chat(id=79, type="private"), text="/stats"))))
+    assert "647" in session.sent[-1].text and "48.5%" in session.sent[-1].text

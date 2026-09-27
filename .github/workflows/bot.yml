@@ -1,0 +1,51 @@
+name: polyhunter-bot
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # запасной реаниматор эстафеты (крон GitHub ненадёжен)
+  workflow_dispatch:
+    inputs:
+      hours:
+        description: "Сколько часов работает один прогон (для проверки можно 0.05)"
+        default: "5.6"
+        type: string
+
+permissions:
+  actions: write     # запустить следующий прогон
+  contents: write    # ветка state с базой бота
+
+# один бот одновременно: два процесса с одним токеном конфликтуют в Telegram (409)
+concurrency:
+  group: polyhunter-bot
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355     # лимит GitHub — 6 часов
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Pull state
+        run: sh scripts/state_sync.sh pull
+      - name: Run bot
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          BRAIN_PROVIDER: ${{ vars.BRAIN_PROVIDER || 'pollinations' }}
+          BRAIN_API_KEY: ${{ secrets.BRAIN_API_KEY }}
+          STATE_SYNC: "1"
+          RUN_MAX_HOURS: ${{ github.event.inputs.hours || '5.6' }}
+          PYTHONUNBUFFERED: "1"
+        run: python -m bot.app
+      - name: Push state (always, even after a failure)
+        if: always()
+        run: sh scripts/state_sync.sh push || true
+      - name: Pass the baton
+        if: success()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run polyhunter-bot --ref main

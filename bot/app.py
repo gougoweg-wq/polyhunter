@@ -25,7 +25,7 @@ import hunter  # noqa: E402  сбор позиций кошелька (синх�
 from polyhunter import api, pipeline, render  # noqa: E402
 from polyhunter.engine import RadarEngine  # noqa: E402
 from polyhunter.radar import trade_key  # noqa: E402
-from polyhunter.model import FADE_FILE, Predictor  # noqa: E402
+from polyhunter.model import FADE_FILE, FADE_JSON, Predictor  # noqa: E402
 from polyhunter.paper import Paper  # noqa: E402
 from polyhunter.trader import Trader  # noqa: E402
 from polyhunter.newstrader import NewsTrader  # noqa: E402
@@ -54,7 +54,8 @@ load_env()
 store = Store(DATA / "bot.db")
 client = api.Client()
 paper = Paper(store)
-predictor = Predictor(DATA / FADE_FILE) if (DATA / FADE_FILE).exists() else None
+_model_file = next((DATA / f for f in (FADE_JSON, FADE_FILE) if (DATA / f).exists()), None)
+predictor = Predictor(_model_file) if _model_file else None
 trader = Trader(store, paper, client, predictor, min_signal_usd=2000)
 newstrader = NewsTrader(store, paper, client, client.h)
 POLYDESK_DB = Path.home() / "polydesk" / "data" / "polydesk.db"
@@ -366,9 +367,16 @@ async def cmd_market(m: Message, command: CommandObject):
 async def cmd_stats(m: Message):
     lang = ulang(m)
     if time.time() - _facts["at"] > 3600 or not _facts["v"]:
-        _facts["v"] = await asyncio.to_thread(pipeline.market_facts, HUNTER_DB)
+        if Path(HUNTER_DB).exists():
+            _facts["v"] = await asyncio.to_thread(pipeline.market_facts, HUNTER_DB)
+            store.set_meta("facts", _facts["v"])        # для облака, где исследовательской базы нет
+        else:
+            _facts["v"] = store.meta("facts")
         _facts["at"] = time.time()
     f = _facts["v"]
+    if not f:
+        await m.answer(tr(lang, "top.empty"))
+        return
     tc = store.tier_counts("all")
     await m.answer(tr(lang, "stats", wallets=f["wallets"], bets=f"{f['bets']:,}", wr=f"{f['wr']:.1%}",
                       er=f"{f['er']:.1%}", lw=f"{f['lw']:.1%}", le=f"{f['le']:.1%}",
@@ -471,6 +479,9 @@ async def broadcast(bot, sig):
 
 async def rescore_loop():
     py = sys.executable
+    if not HUNTER_DB.exists():
+        log.info("rescore: исследовательской базы нет (облако) — рейтинг берётся из bot.db")
+        return
     while True:
         try:
             if not store.meta("tau2:all"):
@@ -486,6 +497,23 @@ async def rescore_loop():
         except Exception:
             log.exception("rescore")
             await asyncio.sleep(600)
+
+
+async def state_sync_loop():
+    """Облако: база бота каждые 15 минут уходит в ветку state репозитория."""
+    if os.environ.get("STATE_SYNC") != "1":
+        return
+    while True:
+        await asyncio.sleep(900)
+        p = await asyncio.create_subprocess_exec("sh", str(ROOT / "scripts" / "state_sync.sh"), "push", cwd=str(ROOT))
+        await p.wait()
+
+
+async def stop_after(hours):
+    """Облако: GitHub даёт задаче максимум 6 часов — останавливаемся сами, следующая задача продолжит."""
+    await asyncio.sleep(hours * 3600)
+    log.info("run limit %.2f h reached — stopping", hours)
+    await dp.stop_polling()
 
 
 async def setup_profile(bot: Bot):
@@ -547,6 +575,9 @@ async def main():
     asyncio.create_task(loop_every(60, trader.copy_step, bot, "copy"))
     asyncio.create_task(loop_every(300, trader.settle_step, bot, "settle"))
     asyncio.create_task(news_loop(bot))
+    asyncio.create_task(state_sync_loop())
+    if os.environ.get("RUN_MAX_HOURS"):
+        asyncio.create_task(stop_after(float(os.environ["RUN_MAX_HOURS"])))
     asyncio.create_task(rescore_loop())
     await dp.start_polling(bot)
 

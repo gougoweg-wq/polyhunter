@@ -222,13 +222,33 @@ def train_fade(db_path, out_dir, cut="2026-07-01", cut_test="2026-08-15", end="2
     Path(out_dir).mkdir(exist_ok=True)
     with open(Path(out_dir) / FADE_FILE, "wb") as f:
         pickle.dump(dict(kind="fade", model=lr, report=report), f)
+    save_fade_json(lr, report, Path(out_dir) / FADE_JSON)
     return report
 
 
+FADE_JSON = "fade_model.json"
+
+
+def save_fade_json(lr, report, path):
+    """Логистическая регрессия → JSON: не зависит от версий Python и scikit-learn в облаке."""
+    import json as _json
+    Path(path).write_text(_json.dumps(dict(kind="fade", features=FADE_FEATURES, intercept=float(lr.intercept_[0]),
+                                           coef=[float(c) for c in lr.coef_[0]], report=report), indent=1, default=str))
+
+
 class Predictor:
-    """Загруженная модель для бота: prob(цена, ставка, категория, признаки кошелька) → P(сторона кита выиграет)."""
+    """Модель для бота: prob(цена, ставка, категория, признаки кошелька) → P(сторона кита выиграет).
+    .json — коэффициенты модели «против китов» (чистый Python); .pkl — прежний формат scikit-learn."""
 
     def __init__(self, path):
+        path = Path(path)
+        self.cal = None
+        if path.suffix == ".json":
+            import json as _json
+            d = _json.loads(path.read_text())
+            self.kind, self.model, self.report = "fade", None, d["report"]
+            self.intercept, self.coef = d["intercept"], d["coef"]
+            return
         with open(path, "rb") as f:
             d = pickle.load(f)
         self.kind = d.get("kind", "wallet")
@@ -237,6 +257,9 @@ class Predictor:
 
     def prob(self, p, stake, cat, wf):
         if self.kind == "fade":
+            if self.model is None:
+                z = self.intercept + sum(c * x for c, x in zip(self.coef, fade_features(p, cat)))
+                return 1 / (1 + math.exp(-z))
             return float(self.model.predict_proba([fade_features(p, cat)])[:, 1][0])
         raw = self.model.predict_proba([features(p, stake, cat, wf)])[:, 1]
         return float(self.cal.predict(raw)[0])
