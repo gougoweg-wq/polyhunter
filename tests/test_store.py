@@ -69,3 +69,8 @@ def test_quick_actions_and_ai_alert_type(tmp_path):
     assert u["alerts"]["ai"] is False
     st.toggle_alert(9, "ai")
     assert st.user(9)["alerts"]["ai"] is True
+
+
+def test_store_creates_missing_directory(tmp_path):
+    st = Store(tmp_path / "no" / "such" / "dir" / "b.db")
+    assert st.user(1)["lang"] == "en"

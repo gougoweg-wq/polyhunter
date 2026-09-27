@@ -1,6 +1,7 @@
 """SQLite-хранилище бота: пользователи, подписки, рейтинг, увиденные сделки, журнал сигналов."""
 import json
 import sqlite3
+from pathlib import Path
 import threading
 import time
 
@@ -13,6 +14,7 @@ SCORE_COLS = ("wallet", "name", "tier", "score", "post_edge", "edge", "q", "n", 
 
 class Store:
     def __init__(self, path):
+        Path(path).parent.mkdir(parents=True, exist_ok=True)   # чистый клон (CI) — папки data ещё нет
         self.c = sqlite3.connect(path, timeout=60, check_same_thread=False)
         self.c.row_factory = sqlite3.Row
         self.lock = threading.Lock()
