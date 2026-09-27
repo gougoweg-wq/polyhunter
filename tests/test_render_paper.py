@@ -44,3 +44,17 @@ def test_trade_events():
 def test_signed_money_zero_has_no_sign():
     assert render.signed_money(-0.3) == "$0" and render.signed_money(0.2) == "$0"
     assert render.signed_money(-4) == "−$4" and render.signed_money(12) == "+$12"
+
+
+def test_news_card_and_event():
+    fc = [dict(question="Will the U.S. invade Iran before 2027?", p_yes=0.12, price=0.20, confidence="high",
+               reasoning="Talks <continue>.", slug="s", event_slug="iran", ts=1790500000)]
+    txt = render.news_card(dict(provider="groq", model="llama", ready=True), fc, dict(cash=990, start=1000), [], {},
+                           dict(n=0, brier_model=None, brier_market=None, model_better=None), "ru")
+    assert "invade Iran" in txt and "12%" in txt and "20%" in txt and "Talks &lt;continue&gt;." in txt and "llama" in txt
+    off = render.news_card(dict(provider="groq", model="llama", ready=False), [], dict(cash=1000, start=1000), [], {},
+                           dict(n=0), "en")
+    assert "BRAIN_API_KEY" in off
+    ev = render.paper_event(dict(kind="news_buy", mk=dict(outcome="No", title="T", slug="s", event_slug="e"), price=0.81,
+                                 usd=15, p_yes=0.12, confidence="high", reasoning="r", market_price=0.2), "ru")
+    assert "📰" in ev and "0.81" in ev and "12%" in ev

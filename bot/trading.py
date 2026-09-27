@@ -4,7 +4,7 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Message
 
-from polyhunter import api, render
+from polyhunter import api, brain, render
 from polyhunter.desk import desk_stats
 from polyhunter.i18n import tr
 from polyhunter.paper import PaperError
@@ -15,7 +15,7 @@ BUY_SIZES = (10, 50, 100)
 
 
 class Ctx:
-    store = paper = trader = client = None
+    store = paper = trader = client = newstrader = None
     ulang = None
     desk_db = None
 
@@ -143,9 +143,9 @@ async def cmd_copy(m: Message, command: CommandObject):
     except (ValueError, AssertionError):
         await m.answer(tr(lang, "copy.bad"))
         return
-    if args[0].lower() == "ai":
-        ctx.store.set_copy(m.chat.id, "ai", usd)
-        await m.answer(tr(lang, "copy.ai", usd=render.money(usd)))
+    if args[0].lower() in ("ai", "news"):
+        ctx.store.set_copy(m.chat.id, args[0].lower(), usd)
+        await m.answer(tr(lang, "copy." + args[0].lower(), usd=render.money(usd)))
         return
     w = ctx.store.find_wallet(args[0])
     if not w:
@@ -164,7 +164,7 @@ async def cmd_copies(m: Message):
         return
     lines, rows = [tr(lang, "copy.list"), ""], []
     for leader, usd in cs:
-        who = "🤖 AI" if leader == "ai" else render.who(ctx.store.score(leader) or {"wallet": leader})
+        who = {"ai": "🤖 AI", "news": "📰 News"}.get(leader) or render.who(ctx.store.score(leader) or {"wallet": leader})
         lines.append(f"• {who} · {render.money(usd)}")
         rows.append([InlineKeyboardButton(text=tr(lang, "btn.uncopy", who="AI" if leader == "ai" else render.short(leader)),
                                           callback_data=q(dict(a="uncopy", leader=leader)))])
@@ -175,7 +175,7 @@ async def cmd_copies(m: Message):
 async def cmd_uncopy(m: Message, command: CommandObject):
     lang = ctx.ulang(m)
     arg = (command.args or "").strip()
-    leader = "ai" if arg.lower() == "ai" else ctx.store.find_wallet(arg)
+    leader = arg.lower() if arg.lower() in ("ai", "news") else ctx.store.find_wallet(arg)
     if not leader:
         await m.answer(tr(lang, "copy.bad"))
         return
@@ -218,9 +218,35 @@ async def cmd_leaders(m: Message):
     ai_acc = ctx.paper.account("ai")
     ai_eq = ctx.paper.equity("ai", {})
     rows.append(("ai", ai_eq, ai_eq - ai_acc["start"]))
+    n_eq = ctx.paper.equity("news", {})
+    rows.append(("news", n_eq, n_eq - ctx.paper.account("news")["start"]))
     d = desk_stats(ctx.desk_db)
     if d:
         rows.append(("desk", d["equity"], d["equity"] - d["start"]))
     rows.sort(key=lambda r: -r[2])
     names = {owner(m.chat.id): "⭐ " + ("Вы" if lang == "ru" else "You")}
     await m.answer(render.leaders(rows, names, lang))
+
+
+@router.message(Command("news"))
+async def cmd_news(m: Message):
+    await send_news(m.chat.id, ctx.ulang(m), m.bot)
+
+
+@router.callback_query(F.data == "news")
+async def cb_news(c: CallbackQuery):
+    await c.answer()
+    await send_news(c.message.chat.id, ctx.ulang(c), c.bot)
+
+
+async def send_news(chat_id, lang, bot):
+    nt = ctx.newstrader
+    cfg = dict(brain.config(), ready=brain.ready())
+    pos = ctx.paper.positions("news")
+    marks = await marks_for(pos)
+    text = render.news_card(cfg, nt.forecasts(6) if nt else [], ctx.paper.account("news"), pos, marks,
+                            nt.track_record() if nt else dict(n=0), lang)
+    on = ctx.store.user(chat_id)["alerts"].get("news")
+    rows = [[InlineKeyboardButton(text=tr(lang, "btn.copy_news"), callback_data=q(dict(a="copy", leader="news", usd=20))),
+             InlineKeyboardButton(text=("✅ " if on else "⬜ ") + tr(lang, "alerts.news"), callback_data="al:news")]]
+    await bot.send_message(chat_id, text, reply_markup=kb(rows), link_preview_options=NOPREVIEW)

@@ -139,7 +139,8 @@ T = {
         "err.no_position": "Этой позиции уже нет.",
         "copy.ok": "📋 Копирую {who}: каждая его покупка — {usd} с вашего тестового счёта, продажи — той же долей.",
         "copy.ai": "📋 Копирую модель: каждая её ставка — {usd} с вашего тестового счёта.",
-        "copy.bad": "Пример: /copy ai 20 или /copy &lt;адрес&gt; 25",
+        "copy.news": "📋 Копирую новостную модель: каждая её ставка — {usd} с вашего тестового счёта.",
+        "copy.bad": "Пример: /copy ai 20, /copy news 20 или /copy &lt;адрес&gt; 25",
         "copy.list": "📋 <b>Копирую</b>",
         "copy.none": "Вы никого не копируете. /copy ai 20 — копировать модель.",
         "copy.off": "Больше не копирую {who}.",
@@ -150,6 +151,20 @@ T = {
         "btn.sell_half": "Продать ½ #{i}", "btn.sell_all": "Продать всё #{i}",
         "btn.copy_ai": "📋 Копировать модель $20", "btn.ai_alerts": "🔔 Сделки модели",
         "btn.reset_yes": "Да, сбросить", "btn.cancel": "Отмена", "btn.uncopy": "✖ {who}",
+        "news.title": "📰 <b>Новостная модель</b> · политика и войны · эксперимент",
+        "news.what": ("Каждые 3 часа читает свежие заголовки по рынкам о политике, выборах и войнах, спрашивает нейросеть "
+                      "о вероятности (цену рынка ей не показываем) и ставит, если перевес ≥ 8 п.п. при высокой уверенности. "
+                      "Размер — ¼ Келли, не больше 1.5% счёта."),
+        "news.brain": "Мозг: {provider} · {model}",
+        "news.nokey": ("Мозг не подключён. Вставьте ключ бесплатного API в .env: BRAIN_PROVIDER=groq и BRAIN_API_KEY=… "
+                       "(подходят groq, openrouter, gemini, cerebras)."),
+        "news.fc": "• {q}\n   модель <b>{p}</b> · рынок {m} · {conf}\n   <i>{r}</i>",
+        "news.track": "Точность: {n} разрешённых прогнозов · Brier модели {bm} против {bk} у рынка",
+        "news.track_none": "Точность появится, когда рынки с прогнозами разрешатся.",
+        "news.account": "Счёт модели: <b>{eq}</b> · итог <b>{pnl}</b> · позиций {n}",
+        "ev.news_buy": "📰 <b>Новостная модель</b> купила <b>{outcome}</b> по <b>{price}</b> на <b>{usd}</b>\nМодель {p} против {m} у рынка · {conf}\n<i>{r}</i>",
+        "alerts.news": "Ставки новостной модели",
+        "btn.copy_news": "📋 Копировать $20",
         "btn.radar": "🚨 Радар", "btn.alerts": "⚙️ Сигналы",
     },
     "en": {
@@ -288,7 +303,8 @@ T = {
         "err.no_position": "This position is already gone.",
         "copy.ok": "📋 Copying {who}: each of their buys is {usd} from your test account, sells at the same fraction.",
         "copy.ai": "📋 Copying the model: each of its bets is {usd} from your test account.",
-        "copy.bad": "Example: /copy ai 20 or /copy &lt;address&gt; 25",
+        "copy.news": "📋 Copying the news model: each of its bets is {usd} from your test account.",
+        "copy.bad": "Example: /copy ai 20, /copy news 20 or /copy &lt;address&gt; 25",
         "copy.list": "📋 <b>Copying</b>",
         "copy.none": "You are not copying anyone. /copy ai 20 to copy the model.",
         "copy.off": "No longer copying {who}.",
@@ -299,6 +315,20 @@ T = {
         "btn.sell_half": "Sell ½ #{i}", "btn.sell_all": "Sell all #{i}",
         "btn.copy_ai": "📋 Copy model $20", "btn.ai_alerts": "🔔 Model trades",
         "btn.reset_yes": "Yes, reset", "btn.cancel": "Cancel", "btn.uncopy": "✖ {who}",
+        "news.title": "📰 <b>News model</b> · politics and wars · experiment",
+        "news.what": ("Every 3 hours it reads fresh headlines for politics, elections and war markets, asks an LLM for "
+                      "the probability (the market price is hidden from it) and bets if the edge is ≥ 8 pp with high "
+                      "confidence. Size: ¼ Kelly, at most 1.5% of the account."),
+        "news.brain": "Brain: {provider} · {model}",
+        "news.nokey": ("The brain is not connected. Put a free API key into .env: BRAIN_PROVIDER=groq and BRAIN_API_KEY=… "
+                       "(groq, openrouter, gemini, cerebras work)."),
+        "news.fc": "• {q}\n   model <b>{p}</b> · market {m} · {conf}\n   <i>{r}</i>",
+        "news.track": "Accuracy: {n} resolved forecasts · model Brier {bm} vs {bk} for the market",
+        "news.track_none": "Accuracy will appear once markets with forecasts resolve.",
+        "news.account": "Model account: <b>{eq}</b> · P&amp;L <b>{pnl}</b> · positions {n}",
+        "ev.news_buy": "📰 <b>News model</b> bought <b>{outcome}</b> at <b>{price}</b> for <b>{usd}</b>\nModel {p} vs market {m} · {conf}\n<i>{r}</i>",
+        "alerts.news": "News model bets",
+        "btn.copy_news": "📋 Copy $20",
         "btn.radar": "🚨 Radar", "btn.alerts": "⚙️ Alerts",
     },
 }

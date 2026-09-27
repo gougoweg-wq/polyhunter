@@ -215,7 +215,7 @@ def leaders(rows, names, lang):
         return tr(lang, "lead.empty")
     out = [tr(lang, "lead.title"), ""]
     for i, (owner, eq, pnl) in enumerate(rows, 1):
-        who_ = "🤖 AI" if owner == "ai" else ("⚡ polydesk" if owner == "desk" else esc(names.get(owner) or owner))
+        who_ = {"ai": "🤖 AI", "desk": "⚡ polydesk", "news": "📰 News"}.get(owner) or esc(names.get(owner) or owner)
         out.append(f"{i}. {who_} · {money(eq)} · <b>{signed_money(pnl)}</b>")
     return "\n".join(out)
 
@@ -229,7 +229,11 @@ def paper_event(e, lang):
                   lp=price(e.get("leader_price", 0)), outcome=esc(mk.get("outcome", "")), price=price(e["price"]),
                   usd=money(e["usd"]), pm=price(1 - e["p_model"] if e.get("side") == "fade" else e["p_model"]))
         return head + f"\n📍 <a href=\"{market_url(mk)}\">{esc(mk.get('title', ''))}</a>"
-    leader = "AI" if e.get("leader") == "ai" else short(e.get("leader", ""))
+    leader = {"ai": "AI", "news": "News"}.get(e.get("leader")) or short(e.get("leader", ""))
+    if k == "news_buy":
+        return tr(lang, "ev.news_buy", outcome=esc(mk.get("outcome", "")), price=price(e["price"]), usd=money(e["usd"]),
+                  p=f"{e['p_yes']:.0%}", m=f"{e['market_price']:.0%}", conf=e.get("confidence", ""),
+                  r=esc(e.get("reasoning", ""))[:300]) + f"\n📍 <a href=\"{market_url(mk)}\">{esc(mk.get('title', ''))}</a>"
     if k == "copy_buy":
         return tr(lang, "ev.copy_buy", leader=leader, outcome=esc(mk.get("outcome", "")), price=price(e["price"]),
                   usd=money(e["usd"])) + f"\n📍 <a href=\"{market_url(mk)}\">{esc(mk.get('title', ''))}</a>"
@@ -242,3 +246,22 @@ def paper_event(e, lang):
         key = "ev.settle_win" if e["won"] else "ev.settle_loss"
         return tr(lang, key, outcome=esc(e.get("outcome", "")), pnl=signed_money(e["pnl"])) + f"\n{esc(e.get('title', ''))}"
     return ""
+
+
+def news_card(cfg, forecasts, acc, positions, marks, track, lang):
+    lines = [tr(lang, "news.title"), "", tr(lang, "news.what"), ""]
+    lines.append("🧠 " + (tr(lang, "news.brain", provider=esc(cfg["provider"]), model=esc(cfg["model"])) if cfg.get("ready")
+                         else tr(lang, "news.nokey")))
+    if forecasts:
+        lines.append("")
+        for f in forecasts[:6]:
+            lines.append(tr(lang, "news.fc", q=f"<a href=\"{market_url(f)}\">{esc(f['question'])}</a>", p=f"{f['p_yes']:.0%}",
+                            m=f"{f['price']:.0%}", conf=esc(f["confidence"]), r=esc(f.get("reasoning") or "")[:220]))
+    lines.append("")
+    if track.get("n"):
+        lines.append("🎯 " + tr(lang, "news.track", n=track["n"], bm=f"{track['brier_model']:.3f}", bk=f"{track['brier_market']:.3f}"))
+    else:
+        lines.append("🎯 " + tr(lang, "news.track_none"))
+    eq = acc["cash"] + sum(p["shares"] * _mark(p, marks) for p in positions)
+    lines.append("💼 " + tr(lang, "news.account", eq=money(eq), pnl=signed_money(eq - acc["start"]), n=len(positions)))
+    return "\n".join(lines)

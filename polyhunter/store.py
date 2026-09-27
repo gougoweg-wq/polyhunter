@@ -4,8 +4,9 @@ import sqlite3
 import threading
 import time
 
-ALERT_TYPES = ("smart", "fresh", "cluster", "fade", "follow", "ai")
-DEFAULT_ALERTS = {"smart": True, "fresh": True, "cluster": True, "fade": False, "follow": True, "ai": False}
+ALERT_TYPES = ("smart", "fresh", "cluster", "fade", "follow", "ai", "news")
+DEFAULT_ALERTS = {"smart": True, "fresh": True, "cluster": True, "fade": False, "follow": True, "ai": False,
+                  "news": True}
 SCORE_COLS = ("wallet", "name", "tier", "score", "post_edge", "edge", "q", "n", "events", "wins", "exp",
               "roi", "pnl", "stake", "best_category", "timing6h")
 

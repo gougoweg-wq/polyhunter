@@ -28,6 +28,8 @@ from polyhunter.radar import trade_key  # noqa: E402
 from polyhunter.model import FADE_FILE, Predictor  # noqa: E402
 from polyhunter.paper import Paper  # noqa: E402
 from polyhunter.trader import Trader  # noqa: E402
+from polyhunter.newstrader import NewsTrader  # noqa: E402
+from polyhunter import brain  # noqa: E402
 from bot import trading  # noqa: E402
 from polyhunter.i18n import lang_of, tr  # noqa: E402
 from polyhunter.store import ALERT_TYPES, Store  # noqa: E402
@@ -54,6 +56,7 @@ client = api.Client()
 paper = Paper(store)
 predictor = Predictor(DATA / FADE_FILE) if (DATA / FADE_FILE).exists() else None
 trader = Trader(store, paper, client, predictor, min_signal_usd=2000)
+newstrader = NewsTrader(store, paper, client, client.h)
 POLYDESK_DB = Path.home() / "polydesk" / "data" / "polydesk.db"
 dp = Dispatcher()
 NOPREVIEW = LinkPreviewOptions(is_disabled=True)
@@ -81,7 +84,8 @@ def top_kb(lang):
 def start_kb(lang):
     k = top_kb(lang)
     k.inline_keyboard.append([InlineKeyboardButton(text="💼 " + ("Счёт" if lang == "ru" else "Account"), callback_data="paper"),
-                              InlineKeyboardButton(text="🤖 " + ("Модель" if lang == "ru" else "Model"), callback_data="ai")])
+                              InlineKeyboardButton(text="🤖 " + ("Модель" if lang == "ru" else "Model"), callback_data="ai"),
+                              InlineKeyboardButton(text="📰 " + ("Новости" if lang == "ru" else "News"), callback_data="news")])
     k.inline_keyboard.append([InlineKeyboardButton(text=tr(lang, "btn.radar"), callback_data="radar"),
                               InlineKeyboardButton(text=tr(lang, "btn.alerts"), callback_data="alerts")])
     return k
@@ -414,6 +418,8 @@ async def notify_events(bot, events):
     for e in events:
         if e["kind"] == "ai_buy":
             to = [u["chat_id"] for u in store.users() if u["alerts"].get("ai")]
+        elif e["kind"] == "news_buy":
+            to = [u["chat_id"] for u in store.users() if u["alerts"].get("news")]
         elif e["kind"] in ("copy_buy", "copy_sell", "copy_fail"):
             to = [e["chat"]]
         elif e["kind"] == "settle" and str(e["owner"]).startswith("u:"):
@@ -436,6 +442,20 @@ async def loop_every(seconds, fn, bot, name):
         except Exception:
             log.exception(name)
         await asyncio.sleep(seconds)
+
+
+async def news_loop(bot):
+    """Новостная модель: цикл раз в 3 часа, пока подключён ключ мозга; исходы прогнозов — каждый час."""
+    last = 0
+    while True:
+        try:
+            if brain.ready() and time.time() - last > 3 * 3600:
+                last = time.time()
+                await notify_events(bot, await newstrader.cycle())
+            await newstrader.resolve()
+        except Exception:
+            log.exception("news")
+        await asyncio.sleep(3600)
 
 
 async def broadcast(bot, sig):
@@ -474,14 +494,14 @@ async def setup_profile(bot: Bot):
         "ru": [("top", "Рейтинг умных денег"), ("wallet", "Разбор кошелька"), ("market", "Умные деньги в рынке"),
                ("radar", "Последние сигналы"), ("follow", "Следить за кошельком"), ("following", "Мой список"),
                ("alerts", "Какие сигналы присылать"), ("threshold", "Минимальная ставка для сигнала"),
-               ("paper", "Мой тестовый счёт"), ("ai", "Модель «против китов»"), ("copy", "Копировать модель или кошелёк"),
+               ("paper", "Мой тестовый счёт"), ("news", "Новостная модель: политика и войны"), ("ai", "Модель «против китов»"), ("copy", "Копировать модель или кошелёк"),
                ("copies", "Кого я копирую"), ("leaders", "Лидеры бумажной торговли"), ("desk", "Бот polydesk"),
                ("reset", "Сбросить тестовый счёт"),
                ("stats", "Что показывают данные"), ("about", "Как считается рейтинг"), ("help", "Все команды")],
         "en": [("top", "Smart money leaderboard"), ("wallet", "Wallet breakdown"), ("market", "Smart money in a market"),
                ("radar", "Latest signals"), ("follow", "Track a wallet"), ("following", "My list"),
                ("alerts", "Choose signals"), ("threshold", "Minimum bet size"),
-               ("paper", "My test account"), ("ai", "Fade-the-whales model"), ("copy", "Copy the model or a wallet"),
+               ("paper", "My test account"), ("news", "News model: politics and wars"), ("ai", "Fade-the-whales model"), ("copy", "Copy the model or a wallet"),
                ("copies", "Who I copy"), ("leaders", "Paper trading leaders"), ("desk", "polydesk bot"),
                ("reset", "Reset test account"),
                ("stats", "What the data shows"), ("about", "How the score works"), ("help", "All commands")],
@@ -526,12 +546,14 @@ async def main():
     asyncio.create_task(radar_loop(bot))
     asyncio.create_task(loop_every(60, trader.copy_step, bot, "copy"))
     asyncio.create_task(loop_every(300, trader.settle_step, bot, "settle"))
+    asyncio.create_task(news_loop(bot))
     asyncio.create_task(rescore_loop())
     await dp.start_polling(bot)
 
 
 trading.ctx.store, trading.ctx.paper, trading.ctx.trader, trading.ctx.client = store, paper, trader, client
 trading.ctx.ulang, trading.ctx.desk_db = ulang, POLYDESK_DB
+trading.ctx.newstrader = newstrader
 dp.include_router(trading.router)
 
 
