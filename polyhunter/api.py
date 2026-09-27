@@ -135,7 +135,13 @@ class Client:
         return await self.get(f"{DATA}/holders", market=condition_id, limit=limit)
 
     async def book(self, token):
-        return parse_book(await self.get(f"{CLOB}/book", token_id=token))
+        """Стакан исхода; у закрытого или разрешённого рынка CLOB отвечает 404 — это пустой стакан."""
+        try:
+            return parse_book(await self.get(f"{CLOB}/book", token_id=token))
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 404:
+                return [], []
+            raise
 
     async def midpoints(self, tokens):
         out = {}

@@ -53,3 +53,16 @@ def test_winner_token_and_fee_rate():
     assert api.winner_token(dict(m, closed=False)) is None
     assert api.winner_token(dict(m, outcomePrices='["0.5", "0.5"]')) is None
     assert api.fee_rate(m) == 0.05 and api.fee_rate({}) == 0.0
+
+
+def test_book_of_closed_market_is_empty():
+    import asyncio
+    import httpx
+
+    async def go():
+        c = api.Client()
+        c.h = httpx.AsyncClient(transport=httpx.MockTransport(lambda req: httpx.Response(404, json={"error": "No orderbook"})))
+        out = await c.book("123")
+        await c.close()
+        return out
+    assert asyncio.run(go()) == ([], [])
