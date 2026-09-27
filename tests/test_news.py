@@ -56,3 +56,15 @@ def test_forecast_scoring_vs_market():
 def test_query_drops_polymarket_x_and_adds_recency():
     assert news.query_for("US x Iran ceasefire continues through September 30?") == "US Iran ceasefire continues"
     assert news.search_params("US Iran ceasefire")["q"] == "US Iran ceasefire when:7d"
+
+
+def test_keyless_default_brain(monkeypatch):
+    for k in ("BRAIN_PROVIDER", "BRAIN_API_KEY", "BRAIN_MODEL", "BRAIN_BASE_URL"):
+        monkeypatch.delenv(k, raising=False)
+    c = brain.config()
+    assert c["provider"] == "pollinations" and brain.ready()            # без ключа работает сразу
+    assert "Authorization" not in brain.headers(c)
+    monkeypatch.setenv("BRAIN_PROVIDER", "groq")
+    assert not brain.ready()                                             # groq без ключа — не готов
+    monkeypatch.setenv("BRAIN_API_KEY", "k")
+    assert brain.ready() and brain.headers(brain.config())["Authorization"] == "Bearer k"

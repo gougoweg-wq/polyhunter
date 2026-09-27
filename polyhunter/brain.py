@@ -1,7 +1,7 @@
 """«Мозг» новостной модели: любой OpenAI-совместимый API нейросети (Groq, OpenRouter, Gemini, Cerebras…).
 
 Настройка в .env:
-  BRAIN_PROVIDER=groq            # groq | openrouter | gemini | cerebras | custom
+  BRAIN_PROVIDER=pollinations    # pollinations (без ключа) | groq | openrouter | gemini | cerebras | custom
   BRAIN_API_KEY=...              # ключ сервиса
   BRAIN_MODEL=...                # необязательно: модель по умолчанию из пресета
   BRAIN_BASE_URL=...             # только для custom
@@ -13,6 +13,8 @@ import re
 import time
 
 PRESETS = {
+    # без ключа и регистрации: открытая модель OpenAI gpt-oss через Pollinations (анонимный лимит)
+    "pollinations": ("https://text.pollinations.ai/openai", "openai"),
     "groq": ("https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
     "openrouter": ("https://openrouter.ai/api/v1", "meta-llama/llama-3.3-70b-instruct:free"),
     "gemini": ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash"),
@@ -24,8 +26,11 @@ SYSTEM = ("You are a careful superforecaster. You estimate probabilities of real
           "most dramatic events do not happen within short deadlines. Answer with JSON only.")
 
 
+KEYLESS = {"pollinations"}
+
+
 def config():
-    provider = os.environ.get("BRAIN_PROVIDER", "groq").lower()
+    provider = os.environ.get("BRAIN_PROVIDER", "pollinations").lower()
     base, model = PRESETS.get(provider, (os.environ.get("BRAIN_BASE_URL", ""), ""))
     return dict(provider=provider, base_url=os.environ.get("BRAIN_BASE_URL", base).rstrip("/"),
                 model=os.environ.get("BRAIN_MODEL", model), key=os.environ.get("BRAIN_API_KEY", ""))
@@ -33,7 +38,14 @@ def config():
 
 def ready():
     c = config()
-    return bool(c["key"] and c["base_url"] and c["model"])
+    return bool((c["key"] or c["provider"] in KEYLESS) and c["base_url"] and c["model"])
+
+
+def headers(c):
+    h = {"Content-Type": "application/json"}
+    if c["key"]:
+        h["Authorization"] = f"Bearer {c['key']}"
+    return h
 
 
 def forecast_prompt(m, items, now_ts=None, max_items=40):
@@ -70,9 +82,8 @@ async def ask(http, prompt, retries=4):
     c = config()
     body = {"model": c["model"], "temperature": 0.2, "max_tokens": 700,
             "messages": [{"role": "system", "content": SYSTEM}, {"role": "user", "content": prompt}]}
-    headers = {"Authorization": f"Bearer {c['key']}", "Content-Type": "application/json"}
     for attempt in range(retries):
-        r = await http.post(f"{c['base_url']}/chat/completions", json=body, headers=headers, timeout=90)
+        r = await http.post(f"{c['base_url']}/chat/completions", json=body, headers=headers(c), timeout=120)
         if r.status_code == 429 or r.status_code >= 500:     # бесплатные лимиты: ждём и повторяем
             await asyncio.sleep(min(60, 5 * 2 ** attempt))
             continue
