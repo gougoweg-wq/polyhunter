@@ -49,3 +49,12 @@ def test_seen_trades_dedup_and_signal_log(tmp_path):
     assert st.mark_seen(k) is False
     st.log_signal("smart", "<b>msg</b>", 1790516400)
     assert st.recent_signals(5)[0]["text"] == "<b>msg</b>"
+
+
+def test_top_orders_by_tier_then_score(tmp_path):
+    st = mk(tmp_path)
+    base = dict(post_edge=.05, edge=.05, q=.01, n=100, events=90, wins=60, exp=55, roi=.1, pnl=1, stake=10,
+                best_category="news", timing6h=None, name="")
+    st.save_scores("news", [dict(base, wallet="0xb", tier="B", score=95), dict(base, wallet="0xs", tier="S", score=80),
+                            dict(base, wallet="0xa", tier="A", score=90), dict(base, wallet="0xs2", tier="S", score=85)])
+    assert [r["wallet"] for r in st.top("news", 10)] == ["0xs2", "0xs", "0xa", "0xb"]

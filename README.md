@@ -35,7 +35,7 @@ cp .env.example .env        # вставить BOT_TOKEN от @BotFather
 ```
 
 Бот сам выставляет команды, описание и короткое описание на двух языках. Аватарка —
-`assets/avatar.png` (генерирует `assets/make_avatar.py`), ставится в @BotFather → `/setuserpic`.
+`assets/avatar.png` (генерирует `assets/make_avatar.py`), ставится командой `.venv/bin/python -m bot.set_avatar`.
 
 Сбор данных и анализ из командной строки (только стандартная библиотека):
 

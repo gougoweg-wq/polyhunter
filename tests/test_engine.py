@@ -72,3 +72,16 @@ def test_sports_cluster_needs_more_money(tmp_path):
     assert run(eng.step(batch)) == []                      # $27k в спорте — шум
     news = [tr(w, f"n{i}", usd=9000, price=0.5, asset="N", ts=1000 + 60 * i) for i, w in enumerate(ws)]
     assert [s["kind"] for s in run(eng.step(news))][-1] == "cluster"
+
+
+def test_signals_logged_even_without_recipients(tmp_path):
+    st = Store(tmp_path / "e.db")
+    st.save_scores("all", [dict(wallet=S, name="shark", tier="S", score=90, post_edge=.1, edge=.1, q=.001, n=100,
+                                events=80, wins=70, exp=60, roi=.2, pnl=1e5, stake=5e5, best_category="news",
+                                timing6h=None)])
+
+    async def hist(w, c):
+        return 40
+    eng = RadarEngine(st, hist)
+    assert run(eng.step([tr(S, "z1")])) == []           # отправлять некому
+    assert len(st.recent_signals(5)) == 1               # но в журнал /radar сигнал попал

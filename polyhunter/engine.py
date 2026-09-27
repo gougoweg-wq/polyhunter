@@ -34,12 +34,14 @@ class RadarEngine:
         return out
 
     def _emit(self, signals, kind, to, **payload):
-        if not to:
-            return
+        """Журнал /radar пишется всегда; в рассылку сигнал идёт, только если есть получатели."""
         sig = dict(kind=kind, to=sorted(to), **payload)
-        signals.append(sig)
+        if to:
+            signals.append(sig)
         ts = (payload.get("trade") or payload.get("cluster") or {}).get("ts") or \
              (payload.get("cluster") or {}).get("last_ts", 0)
+        if kind == "follow":          # личные подписки не светим в общем журнале
+            return
         self.store.log_signal(kind, json.dumps({k: v for k, v in sig.items() if k != "to"}, ensure_ascii=False), ts)
 
     async def step(self, trades):

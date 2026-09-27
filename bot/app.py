@@ -72,8 +72,8 @@ def top_kb(lang):
 
 def start_kb(lang):
     k = top_kb(lang)
-    k.inline_keyboard.append([InlineKeyboardButton(text="🚨 Radar", callback_data="radar"),
-                              InlineKeyboardButton(text="⚙️ Alerts", callback_data="alerts")])
+    k.inline_keyboard.append([InlineKeyboardButton(text=tr(lang, "btn.radar"), callback_data="radar"),
+                              InlineKeyboardButton(text=tr(lang, "btn.alerts"), callback_data="alerts")])
     return k
 
 
@@ -152,12 +152,15 @@ async def cmd_top(m: Message, command: CommandObject):
 async def cb_top(c: CallbackQuery):
     lang = ulang(c)
     cat = c.data.split(":", 1)[1]
-    try:
-        await c.message.edit_text(render.top_list(store.top(cat, 10), cat, lang), reply_markup=top_kb(lang),
-                                  link_preview_options=NOPREVIEW)
-    except TelegramAPIError:
-        pass
+    text = render.top_list(store.top(cat, 10), cat, lang)
     await c.answer()
+    if (c.message.text or "").startswith("🏆"):     # переключаем категорию в том же сообщении
+        try:
+            await c.message.edit_text(text, reply_markup=top_kb(lang), link_preview_options=NOPREVIEW)
+        except TelegramAPIError:
+            pass
+    else:                                            # из стартового меню — новым сообщением, меню остаётся
+        await c.message.answer(text, reply_markup=top_kb(lang), link_preview_options=NOPREVIEW)
 
 
 @dp.message(Command("wallet"))
@@ -356,7 +359,7 @@ async def cmd_stats(m: Message):
                       s=tc.get("S", 0), a=tc.get("A", 0), f=tc.get("F", 0)))
 
 
-@dp.message(F.text.regexp(r"polymarket\.com/(event|market)/"))
+@dp.message(F.text.regexp(r"polymarket\.com/(event|market)/", mode="search"))
 async def link_shortcut(m: Message):
     """Просто прислали ссылку — показываем умные деньги в рынке."""
     await cmd_market(m, CommandObject(prefix="/", command="market", args=m.text))

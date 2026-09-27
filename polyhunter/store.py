@@ -105,7 +105,8 @@ class Store:
 
     def top(self, cat, limit=10, tiers=("S", "A", "B")):
         q = ",".join("?" * len(tiers))
-        return self._rows(f"select * from scores where cat=? and tier in ({q}) order by score desc, pnl desc limit ?",
+        return self._rows(f"select * from scores where cat=? and tier in ({q}) "
+                          f"order by case tier when 'S' then 0 when 'A' then 1 else 2 end, score desc, pnl desc limit ?",
                           (cat, *tiers, limit))
 
     def score(self, wallet, cat="all"):

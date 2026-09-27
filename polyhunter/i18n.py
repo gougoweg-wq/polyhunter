@@ -95,6 +95,7 @@ T = {
         "btn.top_news": "🗞 Новости", "btn.top_sports": "⚽ Спорт", "btn.top_crypto": "₿ Крипта",
         "btn.top_all": "🌐 Все", "btn.follow": "⭐ Следить", "btn.unfollow": "✖ Не следить",
         "btn.profile": "Профиль на Polymarket", "btn.market": "Открыть рынок",
+        "btn.radar": "🚨 Радар", "btn.alerts": "⚙️ Сигналы",
     },
     "en": {
         "cat.news": "news", "cat.sports": "sports", "cat.crypto": "crypto", "cat.all": "all markets",
@@ -188,6 +189,7 @@ T = {
         "btn.top_news": "🗞 News", "btn.top_sports": "⚽ Sports", "btn.top_crypto": "₿ Crypto",
         "btn.top_all": "🌐 All", "btn.follow": "⭐ Follow", "btn.unfollow": "✖ Unfollow",
         "btn.profile": "Polymarket profile", "btn.market": "Open market",
+        "btn.radar": "🚨 Radar", "btn.alerts": "⚙️ Alerts",
     },
 }
 
