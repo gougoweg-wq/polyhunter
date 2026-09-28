@@ -15,7 +15,9 @@ GAMMA_EVENTS = f"{api.GAMMA}/events"
 
 
 class NewsTrader:
-    def __init__(self, store, paper, client, http, ask_fn=None, per_cycle=10, refresh_hours=12, min_headlines=3):
+    def __init__(self, store, paper, client, http, ask_fn=None, per_cycle=10, refresh_hours=12, min_headlines=3,
+                 max_days=14):
+        self.max_days = max_days
         self.store, self.paper, self.client, self.http = store, paper, client, http
         self.ask = ask_fn or brain.ask
         self.per_cycle = per_cycle
@@ -52,7 +54,8 @@ class NewsTrader:
                                              order="volume24hr", ascending="false")
             except Exception:
                 continue
-        markets = [m for m in news.select_markets(evs, limit=100) if not self._recent(m["condition_id"])]
+        markets = [m for m in news.prioritize(news.select_markets(evs, limit=200), self.max_days)
+                   if not self._recent(m["condition_id"])]
         events = []
         for m in markets[: self.per_cycle]:
             items = await news.fetch_news(self.http, news.query_for(m["question"]))
@@ -75,7 +78,19 @@ class NewsTrader:
             events += await self._trade(m, f)
         return events
 
+    def _resolves_soon(self, m, days=None):
+        """Ставим только на рынки с исходом в пределах 14 дней: быстрая проверка прогнозов,
+        деньги не замораживаются на месяцы (решение совета 28.09)."""
+        days = self.max_days if days is None else days
+        try:
+            end = time.mktime(time.strptime(m["end_date"][:10], "%Y-%m-%d"))
+        except (ValueError, TypeError):
+            return False
+        return end - time.time() <= days * 86400
+
     async def _trade(self, m, f):
+        if not self._resolves_soon(m):
+            return []
         if any(p["condition_id"] == m["condition_id"] for p in self.paper.positions(OWNER)):
             return []
         _b, yes_asks = await self.client.book(m["yes_token"])

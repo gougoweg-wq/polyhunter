@@ -4,7 +4,7 @@ from aiogram.exceptions import TelegramAPIError
 from aiogram.filters import Command, CommandObject
 from aiogram.types import CallbackQuery, InlineKeyboardButton, InlineKeyboardMarkup, LinkPreviewOptions, Message
 
-from polyhunter import api, brain, render
+from polyhunter import api, brain, render, stats
 from polyhunter.desk import desk_stats
 from polyhunter.i18n import tr
 from polyhunter.paper import PaperError
@@ -200,6 +200,7 @@ async def send_ai(chat_id, lang, bot):
     pos = ctx.paper.positions("ai")
     marks = await marks_for(pos)
     text = render.ai_card(rep, ctx.paper.account("ai"), pos, marks, ctx.paper.trades("ai", 5), lang)
+    text += "\n" + render.live_line(stats.live_record(stats.settled_returns(ctx.paper.trades("ai", 100000)), 0.075), lang)
     on = ctx.store.user(chat_id)["alerts"].get("ai")
     rows = [[InlineKeyboardButton(text=tr(lang, "btn.copy_ai"), callback_data=q(dict(a="copy", leader="ai", usd=20))),
              InlineKeyboardButton(text=("✅ " if on else "⬜ ") + tr(lang, "btn.ai_alerts"), callback_data="al:ai")]]
@@ -208,7 +209,11 @@ async def send_ai(chat_id, lang, bot):
 
 @router.message(Command("desk"))
 async def cmd_desk(m: Message):
-    await m.answer(render.desk_card(desk_stats(ctx.desk_db), ctx.ulang(m)))
+    d = desk_stats(ctx.desk_db)
+    text = render.desk_card(d, ctx.ulang(m))
+    if d:
+        text += "\n" + render.live_line(stats.live_record(d.get("returns", []), 0.10), ctx.ulang(m))
+    await m.answer(text)
 
 
 @router.message(Command("leaders"))
@@ -246,6 +251,7 @@ async def send_news(chat_id, lang, bot):
     marks = await marks_for(pos)
     text = render.news_card(cfg, nt.forecasts(6) if nt else [], ctx.paper.account("news"), pos, marks,
                             nt.track_record() if nt else dict(n=0), lang)
+    text += "\n" + render.live_line(stats.live_record(stats.settled_returns(ctx.paper.trades("news", 100000)), 0.08), lang)
     on = ctx.store.user(chat_id)["alerts"].get("news")
     rows = [[InlineKeyboardButton(text=tr(lang, "btn.copy_news"), callback_data=q(dict(a="copy", leader="news", usd=20))),
              InlineKeyboardButton(text=("✅ " if on else "⬜ ") + tr(lang, "alerts.news"), callback_data="al:news")]]

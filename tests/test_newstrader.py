@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time as _time
 import pytest
 from polyhunter.newstrader import NewsTrader
 from polyhunter.paper import Paper
@@ -8,7 +9,7 @@ from polyhunter.store import Store
 EVENT = {"slug": "iran", "title": "Will the U.S. invade Iran before 2027?", "markets": [
     {"conditionId": "C1", "question": "Will the U.S. invade Iran before 2027?", "outcomes": '["Yes", "No"]',
      "outcomePrices": '["0.20", "0.80"]', "clobTokenIds": '["Y1", "N1"]', "liquidity": "50000", "volume24hr": "9000",
-     "endDate": "2026-12-31T00:00:00Z", "description": "Resolves YES if...", "active": True, "closed": False,
+     "endDate": _time.strftime("%Y-%m-%d", _time.gmtime(_time.time() + 7 * 86400)) + "T00:00:00Z", "description": "Resolves YES if...", "active": True, "closed": False,
      "slug": "invade-iran", "feeSchedule": {}}]}
 RSS = "<rss>" + "".join(f"<item><title>Iran news {i} - Src</title><link>l</link><pubDate>Sun, 27 Sep 2026 1{i}:00:00 GMT</pubDate>"
                         f"<source url='s'>Src</source></item>" for i in range(5)) + "</rss>"
@@ -83,3 +84,15 @@ def test_resolution_scores_forecasts(tmp_path):
     run(nt.resolve())
     s = nt.track_record()
     assert s["n"] == 1 and s["brier_model"] == pytest.approx(0.05 ** 2) and s["model_better"] is True
+
+
+def test_news_only_bets_on_markets_resolving_within_14_days(tmp_path):
+    import time as _t
+    st, paper, nt, calls = make(tmp_path, {"p_yes": 0.40, "confidence": "high", "reasoning": "r"})
+    far = _t.strftime("%Y-%m-%d", _t.gmtime(_t.time() + 60 * 86400))
+    EVENT["markets"][0]["endDate"] = far + "T00:00:00Z"
+    try:
+        run(nt.cycle())
+        assert len(nt.forecasts()) == 1 and paper.positions("news") == []   # прогноз пишем, но не ставим
+    finally:
+        EVENT["markets"][0]["endDate"] = _time.strftime("%Y-%m-%d", _time.gmtime(_time.time() + 7 * 86400)) + "T00:00:00Z"

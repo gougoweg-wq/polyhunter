@@ -265,3 +265,10 @@ def news_card(cfg, forecasts, acc, positions, marks, track, lang):
     eq = acc["cash"] + sum(p["shares"] * _mark(p, marks) for p in positions)
     lines.append("💼 " + tr(lang, "news.account", eq=money(eq), pnl=signed_money(eq - acc["start"]), n=len(positions)))
     return "\n".join(lines)
+
+
+def live_line(rec, lang):
+    if not rec.get("n"):
+        return tr(lang, "live.none")
+    return tr(lang, "live.line", n=rec["n"], m=pct(rec["mean"]), lo=pct(rec["lo"]), hi=pct(rec["hi"]),
+              need=rec["needed"] if rec.get("needed") else "—")

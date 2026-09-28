@@ -73,3 +73,11 @@ def test_keyless_default_brain(monkeypatch):
 def test_news_never_buys_longshots_below_015():
     # модель считает, что фаворит 92% проиграет — покупка «Нет» по 0.08 запрещена
     assert news.decide(p_yes=0.40, yes_ask=0.93, no_ask=0.08, confidence="high", bankroll=1000)["side"] is None
+
+
+def test_soon_resolving_markets_first():
+    import time
+    soon = time.strftime("%Y-%m-%d", time.gmtime(time.time() + 3 * 86400))
+    late = time.strftime("%Y-%m-%d", time.gmtime(time.time() + 90 * 86400))
+    ms = [dict(end_date=late, volume24=9e6, condition_id="L"), dict(end_date=soon, volume24=1e3, condition_id="S")]
+    assert [m["condition_id"] for m in news.prioritize(ms, max_days=14)] == ["S", "L"]

@@ -72,7 +72,7 @@ def test_paper_trading_flow(tmp_path, monkeypatch):
         assert "Продано" in out[-1].text and paper.positions("u:5")[0]["shares"] == 31.25
         assert "Копирую модель" in (await say("/copy ai 15"))[-1].text and st.copies_of(5) == [("ai", 15.0)]
         ai = (await say("/ai"))[-1]
-        assert "Модель" in ai.text and "Живой счёт" in ai.text
+        assert "Модель" in ai.text and "Живой счёт" in ai.text and "Живьём" in ai.text
         assert "Лидеры" in (await say("/leaders"))[-1].text
         assert "polydesk" in (await say("/desk"))[-1].text
         ask = (await say("/reset"))[-1]

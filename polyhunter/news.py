@@ -83,6 +83,18 @@ def select_markets(events, min_liquidity=10000, limit=25, now=None):
     return sorted(out, key=lambda x: -x["volume24"])[:limit]
 
 
+def prioritize(markets, max_days=14, now=None):
+    """Сначала рынки, которые разрешатся в пределах max_days (быстрая проверка прогнозов), дальше по объёму."""
+    now = now or time.time()
+
+    def soon(m):
+        try:
+            return time.mktime(time.strptime(m["end_date"][:10], "%Y-%m-%d")) - now <= max_days * 86400
+        except (ValueError, TypeError, KeyError):
+            return False
+    return sorted(markets, key=lambda m: (not soon(m), -m.get("volume24", 0)))
+
+
 # ------------------------------------------------------------------ решение
 def decide(p_yes, yes_ask, no_ask, confidence, bankroll, kelly_frac=0.25, cap=0.015, min_usd=5, min_ask=0.15):
     """Ставим только на уверенные прогнозы с большим перевесом: high — от 8 п.п., medium — от 12 п.п.
