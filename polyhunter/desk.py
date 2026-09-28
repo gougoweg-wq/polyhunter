@@ -20,3 +20,18 @@ def desk_stats(db_path, start=1000.0):
         return None
     return dict(equity=eq[0] if eq else start + pnl, realized=pnl, markets=n, won=won or 0, fills_24h=f24,
                 start=start, last=last)
+
+
+DESK_STATE_URL = "https://raw.githubusercontent.com/gougoweg-wq/polydesk/state/polydesk.db.gz"
+
+
+async def download_desk(http, url, dest):
+    """Облако: журнал polydesk лежит в ветке state его репозитория — скачиваем сжатую копию."""
+    import gzip
+    r = await http.get(url, timeout=60)
+    if r.status_code != 200:
+        return False
+    tmp = Path(str(dest) + ".tmp")
+    tmp.write_bytes(gzip.decompress(r.content))
+    tmp.replace(dest)
+    return True

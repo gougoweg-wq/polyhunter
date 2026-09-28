@@ -499,6 +499,20 @@ async def rescore_loop():
             await asyncio.sleep(600)
 
 
+async def desk_sync_loop():
+    """Облако: /desk читает журнал облачного polydesk, раз в 15 минут скачивая его из ветки state."""
+    if POLYDESK_DB.exists():
+        return
+    from polyhunter.desk import DESK_STATE_URL, download_desk
+    trading.ctx.desk_db = DATA / "polydesk.db"
+    while True:
+        try:
+            await download_desk(client.h, os.environ.get("DESK_STATE_URL", DESK_STATE_URL), DATA / "polydesk.db")
+        except Exception:
+            log.exception("desk sync")
+        await asyncio.sleep(900)
+
+
 async def state_sync_loop():
     """Облако: база бота каждые 15 минут уходит в ветку state репозитория."""
     if os.environ.get("STATE_SYNC") != "1":
@@ -576,6 +590,7 @@ async def main():
     asyncio.create_task(loop_every(300, trader.settle_step, bot, "settle"))
     asyncio.create_task(news_loop(bot))
     asyncio.create_task(state_sync_loop())
+    asyncio.create_task(desk_sync_loop())
     if os.environ.get("RUN_MAX_HOURS"):
         asyncio.create_task(stop_after(float(os.environ["RUN_MAX_HOURS"])))
     asyncio.create_task(rescore_loop())

@@ -20,3 +20,22 @@ def test_desk_stats_reads_polydesk_ledger(tmp_path):
     assert d["equity"] == 1005 and d["realized"] == 0 and d["markets"] == 2 and d["won"] == 1
     assert d["fills_24h"] == 1 and d["last"][0]["slug"] == "btc-updown-5m-400"
     assert desk_stats(tmp_path / "missing.db") is None
+
+
+def test_download_desk_state(tmp_path):
+    import asyncio, gzip, httpx
+    from polyhunter.desk import download_desk
+    src = tmp_path / "src.db"
+    c = sqlite3.connect(src)
+    c.executescript("create table markets(slug text, start_ts int, pnl real); create table fills(kind text, ts real);"
+                    "create table equity(ts real, equity real); insert into equity values(1, 1234);")
+    c.commit(); c.close()
+    blob = gzip.compress(src.read_bytes())
+
+    async def go():
+        http = httpx.AsyncClient(transport=httpx.MockTransport(lambda r: httpx.Response(200, content=blob)))
+        ok = await download_desk(http, "https://example/state.db.gz", tmp_path / "desk.db")
+        await http.aclose()
+        return ok
+    assert asyncio.run(go()) is True
+    assert desk_stats(tmp_path / "desk.db")["equity"] == 1234
