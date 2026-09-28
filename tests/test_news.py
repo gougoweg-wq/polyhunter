@@ -68,3 +68,8 @@ def test_keyless_default_brain(monkeypatch):
     assert not brain.ready()                                             # groq без ключа — не готов
     monkeypatch.setenv("BRAIN_API_KEY", "k")
     assert brain.ready() and brain.headers(brain.config())["Authorization"] == "Bearer k"
+
+
+def test_news_never_buys_longshots_below_015():
+    # модель считает, что фаворит 92% проиграет — покупка «Нет» по 0.08 запрещена
+    assert news.decide(p_yes=0.40, yes_ask=0.93, no_ask=0.08, confidence="high", bankroll=1000)["side"] is None

@@ -110,8 +110,9 @@ T = {
         "paper.foot": "Цены — живой стакан Polymarket. Деньги тестовые.",
         "ai.title": "🤖 <b>Модель «против китов»</b> · эксперимент",
         "ai.what": ("Крупные игроки Polymarket в среднем переплачивают: их исходы выигрывают реже своей цены. "
-                    "Модель видит крупную покупку кошелька обычного тира и, если перевес ≥ 2 п.п., покупает "
-                    "противоположный исход. Против тиров 💎S и 🔥A не ставит. Размер — ¼ Келли, не больше 2% счёта."),
+                    "Когда кит покупает аутсайдера или «50 на 50» (спорт и крипта — дешевле 0.60, новости — дешевле 0.40), "
+                    "модель при перевесе ≥ 2 п.п. покупает противоположный исход. Против фаворитов не ставит — там киты правы. "
+                    "Против тиров 💎S и 🔥A тоже. Размер — ¼ Келли, не больше 2% счёта."),
         "ai.backtest": ("Проверка на будущем ({a} — {b}): {bets} ставок, ROI <b>{roi}</b> (95%: {lo} … {hi}), "
                         "log-loss {ll} против {mll} у цен рынка."),
         "ai.caveat": "Это верхняя оценка: проверка по средним ценам позиций. Настоящий результат — живой счёт ниже.",
@@ -274,8 +275,9 @@ T = {
         "paper.foot": "Prices come from the live Polymarket order book. Money is not real.",
         "ai.title": "🤖 <b>Fade-the-whales model</b> · experiment",
         "ai.what": ("Big Polymarket players overpay on average: their outcomes win less often than their price. "
-                    "When a regular-tier wallet buys big and the edge is ≥ 2 pp, the model buys the opposite "
-                    "outcome. It never fades 💎S and 🔥A wallets. Size: ¼ Kelly, at most 2% of the account."),
+                    "When a whale buys an underdog or a coin-flip (sports and crypto below 0.60, news below 0.40) and the "
+                    "edge is ≥ 2 pp, the model buys the opposite outcome. It never fades favourites — whales are right there — "
+                    "nor 💎S and 🔥A wallets. Size: ¼ Kelly, at most 2% of the account."),
         "ai.backtest": ("Out-of-sample test ({a} — {b}): {bets} bets, ROI <b>{roi}</b> (95%: {lo} … {hi}), "
                         "log-loss {ll} vs {mll} for market prices."),
         "ai.caveat": "This is an upper bound: the test uses average position prices. The live account below is the real result.",

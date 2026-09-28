@@ -5,6 +5,15 @@ from .classify import category
 from .paper import PaperError
 
 AI = "ai"
+AI_VERSION = 2
+
+# v2: против китов ставим только там, где это работало и на отборе (июль–15.08), и на проверке (15.08–28.09):
+# кит покупает аутсайдера или «50 на 50». Когда кит берёт фаворита, он прав — ставить против него убыточно.
+FADE_MAX_WHALE_PRICE = {"sports": 0.60, "crypto": 0.60, "news": 0.40}
+
+
+def fade_allowed(cat, whale_price):
+    return whale_price < FADE_MAX_WHALE_PRICE.get(cat, 0.0)
 
 
 def _mk(src):
@@ -74,7 +83,7 @@ class Trader:
             d = mdl.decide(p_model, ask + fee * ask * (1 - ask), bankroll, margin=margin, cap=cap)
             if d["bet"] and score["tier"] in ("S", "A", "B"):
                 choice = ("follow", _mk(t), asks, d)
-            elif score["tier"] not in ("S", "A"):
+            elif score["tier"] not in ("S", "A") and fade_allowed(cat, t["price"]):
                 tokens, names = api._jl((m or {}).get("clobTokenIds")), api._jl((m or {}).get("outcomes"))
                 if len(tokens) == 2 and t["asset"] in tokens:
                     j = 1 - tokens.index(t["asset"])
@@ -99,6 +108,21 @@ class Trader:
                                leader_outcome=t["outcome"], leader_price=ask))
             events += self._mirror_buy(AI, mk, book_asks)
         return events
+
+    def migrate(self, version=AI_VERSION):
+        """Новая версия правил — новый счёт модели; итог прежней версии сохраняется в meta."""
+        cur = self.store.meta("ai_version")
+        if cur == version:
+            return False
+        acc = self.paper.account(AI)
+        pos = self.paper.positions(AI)
+        with self.store.lock:
+            n_trades = self.store.c.execute("select count(*) from paper_trades where owner=?", (AI,)).fetchone()[0]
+        self.store.set_meta(f"ai_archive_v{cur or 1}", dict(cash=acc["cash"], positions=len(pos), trades=n_trades,
+                                                            equity_at_cost=acc["cash"] + sum(p["cost"] for p in pos)))
+        self.paper.reset(AI)
+        self.store.set_meta("ai_version", version)
+        return True
 
     def _opened_last_hour(self):
         import time as _t

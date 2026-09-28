@@ -84,14 +84,18 @@ def select_markets(events, min_liquidity=10000, limit=25, now=None):
 
 
 # ------------------------------------------------------------------ решение
-def decide(p_yes, yes_ask, no_ask, confidence, bankroll, kelly_frac=0.25, cap=0.015, min_usd=5):
-    """Ставим только на уверенные прогнозы с большим перевесом: high — от 8 п.п., medium — от 12 п.п."""
+def decide(p_yes, yes_ask, no_ask, confidence, bankroll, kelly_frac=0.25, cap=0.015, min_usd=5, min_ask=0.15):
+    """Ставим только на уверенные прогнозы с большим перевесом: high — от 8 п.п., medium — от 12 п.п.
+    Исходы дешевле 0.15 не покупаем: в новостях фавориты с 85%+ почти всегда правы, а модель
+    переоценивает драму заголовков."""
     margin = {"high": 0.08, "medium": 0.12}.get(confidence)
     none = dict(side=None, usd=0.0)
     if margin is None:
         return none
-    yes = mdl.decide(p_yes, yes_ask, bankroll, margin=margin, kelly_frac=kelly_frac, cap=cap, min_usd=min_usd)
-    no = mdl.decide(1 - p_yes, no_ask, bankroll, margin=margin, kelly_frac=kelly_frac, cap=cap, min_usd=min_usd)
+    yes = mdl.decide(p_yes, yes_ask, bankroll, margin=margin, kelly_frac=kelly_frac, cap=cap, min_usd=min_usd,
+                     min_ask=min_ask)
+    no = mdl.decide(1 - p_yes, no_ask, bankroll, margin=margin, kelly_frac=kelly_frac, cap=cap, min_usd=min_usd,
+                    min_ask=min_ask)
     if yes["bet"] and (not no["bet"] or yes["edge"] >= no["edge"]):
         return dict(side="YES", usd=yes["usd"], edge=yes["edge"])
     if no["bet"]:

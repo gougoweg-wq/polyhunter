@@ -110,7 +110,7 @@ def test_settlement(tmp_path):
 
 def test_ai_fades_when_model_says_whale_overpays(tmp_path):
     st, paper, t = setup(tmp_path, p_model=0.30)       # модель: сторона кита выигрывает лишь в 30%
-    ev = run(t.on_trades([tr()]))                      # кит купил A1 по 0.5 → противоположный A2 по 0.5
+    ev = run(t.on_trades([dict(tr(), title="Lakers vs. Celtics", slug="nba-lal-bos")]))   # спорт, кит по 0.5 → A2
     pos = paper.positions("ai")
     assert len(pos) == 1 and pos[0]["asset"] == "A2" and pos[0]["outcome"] == "No"
     assert ev[0]["kind"] == "ai_buy" and ev[0]["side"] == "fade"
@@ -131,3 +131,26 @@ def test_ai_one_position_per_event_and_hourly_cap(tmp_path):
     others = [dict(tr(tx=f"o{i}", asset=f"X{i}"), condition_id=f"CX{i}", event_slug=f"ev{i}") for i in range(5)]
     run(t.on_trades(others))
     assert len(paper.positions("ai")) == 2                          # потолок 2 новые позиции в час
+
+
+def test_fade_only_in_validated_segments():
+    from polyhunter.trader import fade_allowed
+    assert fade_allowed("sports", 0.45) and fade_allowed("crypto", 0.25) and fade_allowed("news", 0.30)
+    assert not fade_allowed("sports", 0.70) and not fade_allowed("crypto", 0.85)   # киты на фаворитах правы
+    assert not fade_allowed("news", 0.50)
+
+
+def test_ai_does_not_fade_whale_buying_favourite(tmp_path):
+    st, paper, t = setup(tmp_path, p_model=0.30)
+    assert run(t.on_trades([tr(price=0.75)])) == []        # кит купил фаворита по 0.75 — не ставим против
+
+
+def test_model_version_migration_resets_ai_account(tmp_path):
+    st, paper, t = setup(tmp_path, p_model=0.7)
+    run(t.on_trades([tr()]))
+    assert paper.positions("ai")
+    t.migrate(version=2)
+    assert paper.positions("ai") == [] and paper.account("ai")["cash"] == 1000
+    assert st.meta("ai_archive_v1")["positions"] == 1
+    t.migrate(version=2)                                   # повторно ничего не трогает
+    assert st.meta("ai_version") == 2

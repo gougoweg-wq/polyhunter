@@ -54,7 +54,8 @@ load_env()
 store = Store(DATA / "bot.db")
 client = api.Client()
 paper = Paper(store)
-_model_file = next((DATA / f for f in (FADE_JSON, FADE_FILE) if (DATA / f).exists()), None)
+# модель из репозитория (models/) важнее копии в data/: облачный бот перезаписывает data/ из ветки state
+_model_file = next((f for f in (ROOT / "models" / FADE_JSON, DATA / FADE_JSON, DATA / FADE_FILE) if f.exists()), None)
 predictor = Predictor(_model_file) if _model_file else None
 trader = Trader(store, paper, client, predictor, min_signal_usd=2000)
 newstrader = NewsTrader(store, paper, client, client.h)
@@ -585,6 +586,8 @@ async def main():
         await setup_profile(bot)
     except TelegramAPIError as e:
         log.warning("profile: %s", e)
+    if trader.migrate():
+        log.info("модель «против китов»: новая версия правил, счёт начат заново")
     asyncio.create_task(radar_loop(bot))
     asyncio.create_task(loop_every(60, trader.copy_step, bot, "copy"))
     asyncio.create_task(loop_every(300, trader.settle_step, bot, "settle"))
