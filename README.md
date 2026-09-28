@@ -104,7 +104,7 @@ python3 hunter.py timing --category news                       # время вх
 | `bot/app.py` | aiogram 3: команды, кнопки, фоновые циклы |
 | `hunter.py` | Сбор данных и исследовательские отчёты |
 
-Тесты: `.venv/bin/python -m pytest -q`.
+Тесты: `.venv/bin/python -m pytest -q`. Итоги исследования — [docs/RESEARCH.md](docs/RESEARCH.md).
 
 ## Рейтинг 2.0
 
