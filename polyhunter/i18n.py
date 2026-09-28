@@ -112,7 +112,8 @@ T = {
         "ai.what": ("Крупные игроки Polymarket в среднем переплачивают: их исходы выигрывают реже своей цены. "
                     "Когда кит покупает аутсайдера или «50 на 50» (спорт и крипта — дешевле 0.60, новости — дешевле 0.40), "
                     "модель при перевесе ≥ 2 п.п. покупает противоположный исход. Против фаворитов не ставит — там киты правы. "
-                    "Против тиров 💎S и 🔥A тоже. Размер — ¼ Келли, не больше 2% счёта."),
+                    "Против тиров 💎S и 🔥A тоже. Размер — ¼ Келли, не больше 1.5% счёта; всего открыто не больше 25%; "
+                    "сделка пропускается, если проход по стакану съедает больше половины перевеса."),
         "ai.backtest": ("Проверка на будущем ({a} — {b}): {bets} ставок, ROI <b>{roi}</b> (95%: {lo} … {hi}), "
                         "log-loss {ll} против {mll} у цен рынка."),
         "ai.caveat": "Это верхняя оценка: проверка по средним ценам позиций. Настоящий результат — живой счёт ниже.",
@@ -277,7 +278,8 @@ T = {
         "ai.what": ("Big Polymarket players overpay on average: their outcomes win less often than their price. "
                     "When a whale buys an underdog or a coin-flip (sports and crypto below 0.60, news below 0.40) and the "
                     "edge is ≥ 2 pp, the model buys the opposite outcome. It never fades favourites — whales are right there — "
-                    "nor 💎S and 🔥A wallets. Size: ¼ Kelly, at most 2% of the account."),
+                    "nor 💎S and 🔥A wallets. Size: ¼ Kelly, at most 1.5% of the account; at most 25% open in total; "
+                    "skipped if walking the book eats more than half of the edge."),
         "ai.backtest": ("Out-of-sample test ({a} — {b}): {bets} bets, ROI <b>{roi}</b> (95%: {lo} … {hi}), "
                         "log-loss {ll} vs {mll} for market prices."),
         "ai.caveat": "This is an upper bound: the test uses average position prices. The live account below is the real result.",

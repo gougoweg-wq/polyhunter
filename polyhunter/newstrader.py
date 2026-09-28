@@ -8,6 +8,7 @@ import time
 
 from . import api, brain, news
 from .paper import PaperError
+from . import risk
 
 OWNER = "news"
 GAMMA_EVENTS = f"{api.GAMMA}/events"
@@ -87,9 +88,15 @@ class NewsTrader:
         yes = d["side"] == "YES"
         mk = dict(asset=m["yes_token"] if yes else m["no_token"], condition_id=m["condition_id"],
                   outcome="Yes" if yes else "No", title=m["question"], slug=m["slug"], event_slug=m["event_slug"])
-        asks = yes_asks if yes else no_asks
+        asks = risk.clean_asks(yes_asks if yes else no_asks)
+        pos = self.paper.positions(OWNER)
+        open_cost = sum(p["cost"] for p in pos)
+        usd = risk.room(self.paper.account(OWNER)["cash"] + open_cost, open_cost, d["usd"])
+        ok, _avg = risk.slippage_ok(asks, usd, d["edge"]) if usd >= 5 else (False, None)
+        if not ok:
+            return []
         try:
-            r = self.paper.buy(OWNER, mk, asks, d["usd"], source="news")
+            r = self.paper.buy(OWNER, mk, asks, usd, source="news")
         except PaperError:
             return []
         out = [dict(kind="news_buy", owner=OWNER, mk=mk, price=r["price"], usd=r["usd"], p_yes=f["p_yes"],

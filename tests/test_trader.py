@@ -63,7 +63,7 @@ def test_ai_buys_on_model_edge_and_mirrors_copiers(tmp_path):
     st.set_copy(5, "ai", 20)
     ev = run(t.on_trades([tr()]))
     ai = paper.positions("ai")
-    assert len(ai) == 1 and ai[0]["cost"] == pytest.approx(20)          # ¼ Келли 0.1 → потолок 2% от $1000
+    assert len(ai) == 1 and ai[0]["cost"] == pytest.approx(15)          # ¼ Келли 0.1 → потолок 1.5% от $1000
     assert paper.positions("u:5")[0]["cost"] == pytest.approx(20)
     assert {e["kind"] for e in ev} == {"ai_buy", "copy_buy"}
     assert run(t.on_trades([tr(tx="t2")])) == []                          # второй раз в тот же исход не входит
@@ -105,7 +105,7 @@ def test_settlement(tmp_path):
     t.client.winner = "A1"
     ev = run(t.settle_step())
     assert ev and ev[0]["kind"] == "settle" and ev[0]["won"] is True
-    assert paper.positions("ai") == [] and paper.account("ai")["cash"] == pytest.approx(1000 - 20 + 40)
+    assert paper.positions("ai") == [] and paper.account("ai")["cash"] == pytest.approx(1000 - 15 + 30)
 
 
 def test_ai_fades_when_model_says_whale_overpays(tmp_path):
@@ -154,3 +154,19 @@ def test_model_version_migration_resets_ai_account(tmp_path):
     assert st.meta("ai_archive_v1")["positions"] == 1
     t.migrate(version=2)                                   # повторно ничего не трогает
     assert st.meta("ai_version") == 2
+
+
+def test_exposure_cap_blocks_new_bets(tmp_path):
+    st, paper, t = setup(tmp_path, p_model=0.7)
+    paper.buy("ai", dict(asset="Z", condition_id="CZ", outcome="Yes", title="z", slug="z", event_slug="ez"),
+              [(0.5, 10000)], 260)                      # уже открыто 26% капитала
+    assert run(t.on_trades([tr()])) == []
+
+
+def test_thin_book_is_skipped(tmp_path):
+    st, paper, t = setup(tmp_path, p_model=0.7)
+
+    async def thin(token):
+        return [(0.49, 10)], [(0.50, 5), (0.69, 10000)]    # на $15 средняя цена уйдёт к ~0.68
+    t.client.book = thin
+    assert run(t.on_trades([tr()])) == []

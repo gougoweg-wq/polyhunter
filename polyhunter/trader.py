@@ -3,6 +3,7 @@
 from . import api, copytrade, model as mdl
 from .classify import category
 from .paper import PaperError
+from . import risk
 
 AI = "ai"
 AI_VERSION = 2
@@ -97,10 +98,19 @@ class Trader:
             if not choice:
                 continue
             side, mk, book_asks, d = choice
+            # лимиты риска: ≤1.5% на ставку, ≤25% всего открыто; проскальзывание ≤ половины края
+            open_cost = sum(p["cost"] for p in open_pos)
+            usd = risk.room(bankroll + open_cost, open_cost, d["usd"])
+            book_asks = risk.clean_asks(book_asks)
+            if usd < 5:
+                continue
+            ok, _avg = risk.slippage_ok(book_asks, usd, d["edge"])
+            if not ok:
+                continue
             if not self.store.mark_seen(("ai", mk["condition_id"] or mk["asset"])):
                 continue
             try:
-                r = self.paper.buy(AI, mk, book_asks, d["usd"], source=f"ai:{side}", fee_rate=fee)
+                r = self.paper.buy(AI, mk, book_asks, usd, source=f"ai:{side}", fee_rate=fee)
             except PaperError:
                 continue
             events.append(dict(kind="ai_buy", owner=AI, side=side, mk=mk, price=r["price"], usd=r["usd"],
